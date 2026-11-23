@@ -1,11 +1,15 @@
 # Bench Marx
 
-A mobile-friendly workout log for 18 cable, weights and mobility exercises. Tap an exercise once for Done, twice for Heavy, and a third time to record a PR with a result and rep count.
+[Open the live training log](https://marxprogramming.github.io/bench-marx/)
 
-The workout log opens on the current local date. History includes a calendar, an editable weekly chart and previous personal records. Insights show exercise coverage and missed movements across earlier training days.
+**Workout** tracks 17 exercises across cable, weights, plyometrics and mobility. Tap once for done, twice for heavy, and a third time to enter a PR result and rep count.
 
-Workout entries stay in the current browser. Export and import them under **Data & backups** to move between devices. Original Formlog JSON backups are supported.
+**Gymnastics** gives each of the five main skills five rep boxes. Tap once for achieved, again for great and once more to clear. The three optional basics are tracked separately from the 25-rep session target. Both logs open on the current local date.
 
-## Running the app
+**Insights** shows workout coverage, intensity, missed movements, gymnastics rep quality, full sets, skill histories and cross-session patterns over 7, 28 or 90 days. **History** includes a combined calendar, editable workout chart and PR book.
 
-Serve this directory as a static website. GitHub Pages can serve the root of the main branch directly. No build step or account is required to use the deployed tracker. The service worker keeps the app available offline after the first successful load and cache installation.
+Entries are stored in the current browser. Use the settings button to export or merge a JSON backup, enable optional chimes or reduce animations. Existing Formlog and Bench Marx workout backups, including historical Pallof presses, remain readable.
+
+## Hosting
+
+Serve this directory as a static website, or publish the root of the main branch using GitHub Pages. After the service worker has installed over HTTPS, both logs and their assets are available offline.

@@ -1,36 +1,37 @@
-// Each installed version serves a complete offline copy from the same release.
-const appRoot = self.registration.scope;
-const cachePrefix = "bench-marx:" + appRoot + ":";
-const cacheName = cachePrefix + "e17b55188fbf45";
-const appFiles = ["index.html", "style.css", "model.js", "art.js", "ui.js", "actions.js", "manifest.webmanifest", "touch-icon.png", "icon-192.png", "icon-512.png"].map(name => new URL(name, appRoot).href);
-const entry = new URL("index.html", appRoot).href;
-
-self.addEventListener("install", event => {
+// Install the whole release before it becomes eligible to serve offline.
+const root = self.registration.scope;
+const release = '2.0';
+const prefix = 'bench-marx:' + root + ':';
+const cacheName = prefix + release;
+const entry = new URL('index.html', root).href;
+const files = ['index.html','style.css','model.js','art.js','ui.js','gymnastics.js','analysis.js','motion.js','actions.js','manifest.webmanifest','touch-icon.png','icon-192.png','icon-512.png'];
+const canonical = new Map(files.map(f => {
+  const url=new URL(f,root).href;
+  return [url,f==='index.html'?entry:url+'?v='+release];
+}));
+self.addEventListener('install', event => {
   event.waitUntil((async () => {
-    const cache = await caches.open(cacheName);
-    await cache.addAll(appFiles.map(url => new Request(url, {cache: "reload"})));
+    const cache=await caches.open(cacheName);
+    await cache.addAll([...canonical.values()].map(url=>new Request(url,{cache:'reload'})));
+    await self.skipWaiting();
   })());
 });
-
-self.addEventListener("activate", event => {
+self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key.startsWith(cachePrefix) && key !== cacheName)
-      .map(key => caches.delete(key)));
+    const names=await caches.keys();
+    await Promise.all(names.filter(n=>n.startsWith(prefix)&&n!==cacheName).map(n=>caches.delete(n)));
     await self.clients.claim();
   })());
 });
-
-self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET") return;
-  const url = new URL(event.request.url);
-  url.search = "";
-  url.hash = "";
-  const key = url.href === appRoot ? entry : url.href;
-  if (!appFiles.includes(key)) return;
-  event.respondWith((async () => {
-    const cache = await caches.open(cacheName);
-    const cached = await cache.match(key);
-    return cached || fetch(event.request);
+self.addEventListener('fetch',event=>{
+  if(event.request.method!=='GET')return;
+  const url=new URL(event.request.url);
+  const version=url.searchParams.get('v');
+  url.search='';url.hash='';
+  const asset=canonical.get(url.href===root?entry:url.href);
+  if(!asset || (version && version!==release))return;
+  event.respondWith((async()=>{
+    const cache=await caches.open(cacheName);
+    return (await cache.match(asset)) || fetch(event.request);
   })());
 });

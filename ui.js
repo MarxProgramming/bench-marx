@@ -68,22 +68,22 @@ function head(title, sub, action = '') {
       '</div>' + action + '</div>'
 }
 function controls() {
-  return '<div class="date-controls">' + btn('prev', 'Previous day', 'prev', 'chev') +
+  return '<div class="date-controls">' + ('<button class="chev" data-action="prev" aria-label="Previous day" '+(selected<='1900-01-01'?'disabled':'')+'>'+icon('prev')+'</button>') +
       '<button class="date-button" data-action="date">' + icon('cal') +
       (selected === today ? 'Today' : fmt(selected, {day: 'numeric', month: 'short'})) +
       '</button><button class="chev" aria-label="Next day" data-action="next" ' +
       (selected >= today ? 'disabled' : '') + '>' + icon('next') + '</button></div>'
 }
 function segment(n) {
-  return Array.from({length: 18}, (_, i) => '<b class="' + (i < n ? 'on' : '') + '"></b>').join('')
+  return Array.from({length: exercises.length}, (_, i) => '<b class="' + (i < n ? 'on' : '') + '"></b>').join('')
 }
 function hero() {
   const n = dayItems(selected).length;
   return '<section class="hero card" aria-label="Session wave progress">' + waveArt() +
       '<div class="hero-label">' + icon('wave') +
-      'Session wave</div><div class="stat"><span id="done-count">' + n +
-      '</span><small>/ 18</small></div><div class="descriptor">exercises logged</div><div class="meterline"><span class="segs" aria-hidden="true">' +
-      segment(n) + '</span><span class="pct">' + Math.round(100 * n / 18) + '%</span></div></section>'
+      'Session wave</div><div class="stat"><span id="done-count" data-counter="' + n + '">' + n +
+      '</span><small>/ ' + exercises.length + '</small></div><div class="descriptor">exercises logged</div><div class="meterline"><span class="segs" aria-hidden="true">' +
+      segment(n) + '</span><span class="pct" data-counter="' + percentage(n,exercises.length) + '" data-suffix="%">' + Math.round(100 * n / exercises.length) + '%</span></div></section>'
 }
 function paintWave() {
   const records = dayItems(selected);
@@ -96,19 +96,20 @@ function paintWave() {
     crest.style.strokeWidth = r ? '2.8' : ''
   })
 }
-function week() {
+function week(gym=false) {
+  const getRecords=gym?gymOn:dayItems;
   const start = monday(selected), ds = Array.from({length: 7}, (_, i) => offset(start, i)),
-        active = ds.filter(d => dayItems(d).length).length;
+        active = ds.filter(d => getRecords(d).length).length;
   return '<div class="card-head"><h2>Weekly activity</h2>' + icon('weekly') + '</div><p class="subline">' +
       active + ' training ' + (active === 1 ? 'day' : 'days') + ' this week</p><div class="weekdays">' +
       ds.map(d => {
-          const n = dayItems(d).length;
+          const n = getRecords(d).length;
           return '<button class="weekcol" data-day="' + d + '" ' +
               (d === selected ? 'aria-current="date" ' : '') + (d > today ? 'disabled ' : '') +
               'aria-label="' + fmt(d, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + n +
-              ' exercises"><span class="stack" aria-hidden="true">' +
+              (gym?' reps':' exercises')+'"><span class="stack" aria-hidden="true">' +
               Array
-                  .from({length: 6}, (_, j) => '<b class="' + (j < Math.ceil(n / 3) ? 'on' : '') + '"></b>')
+                  .from({length: 6}, (_, j) => '<b class="' + (j < Math.ceil(6*n/(gym?coreTarget:exercises.length)) ? 'on' : '') + '"></b>')
                   .join('') +
               '</span><span>' + fmt(d, {weekday: 'short'}).slice(0, 2) + '</span></button>'
         }).join('') +
@@ -215,24 +216,23 @@ function monthly() {
       ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(w => '<span class="weekday">' + w + '</span>').join('') +
       ds.map(d => {
           if (d.slice(0, 7) !== month) return '<span></span>';
-          const rs = dayItems(d);
+          const rs = [...dayItems(d), ...archivedDay(d)], gs=gymOn(d);
           return '<button data-calday="' + d + '" aria-label="' +
-              fmt(d, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + rs.length +
-              ' exercises" aria-pressed="' + (d === calDay) + '" class="cal-cell ' +
+              fmt(d, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + rs.length + ' exercises, ' + gs.length + ' gym reps" aria-pressed="' + (d === calDay) + '" class="cal-cell ' +
               (d === today ? 'is-today' : '') + '" ' + (d > today ? 'disabled' : '') + '>' +
               Number(d.slice(-2)) + '<span class="cal-dots">' +
               [1, 2, 3]
                   .filter(l => rs.some(r => r.level === l))
                   .map(l => '<i class="dot ' + colours[l] + '"></i>')
                   .join('') +
-              '</span></button>'
+              (gs.length?'<i class="dot gym-dot"></i>':'') + '</span></button>'
         }).join('') +
       '</div>'
 }
 function historicDay() {
-  const rs = dayItems(calDay);
+  const rs = [...dayItems(calDay), ...archivedDay(calDay)], gs=gymOn(calDay);
   return '<div class="card-head"><h2>' + fmt(calDay, {weekday: 'short', day: 'numeric', month: 'short'}) +
-      '</h2><span class="count">' + rs.length + ' / 18</span></div>' +
+      '</h2><span class="count">' + rs.length + ' exercise logs</span></div>' +
       (rs.length ? '<div class="history-log">' +
                rs.map(
                      r => '<div><span>' + byId[r.id].name +
@@ -245,7 +245,12 @@ function historicDay() {
                '</div>' :
                    '<p class="empty-copy">No exercises logged for this day.</p>') +
       '<button class="ghost wide" data-day="' + calDay + '">' +
-      (rs.length ? 'Edit this workout' : 'Log this day') + '</button>'
+      (rs.length ? 'Edit workout' : 'Open workout log') + '</button>'+
+      (gs.length ? '<div class="history-gym"><h3>Gymnastics</h3>'+skills.map(skill=>{
+        const reps=skillOn(calDay,skill.id),q=qualityStats(reps);
+        return reps.length?'<div class="gap"><span>'+skill.name+'</span><b>'+q.total+'/5 · '+q.great+' great</b></div>':'';
+      }).join('')+'</div>':'')+
+      '<button class="ghost wide" data-open-log="gymnastics" data-session="'+calDay+'">'+(gs.length?'Edit gymnastics':'Open gymnastics log')+'</button>'
 }
 let prLimit = 10;
 let historyMode = 'calendar';
@@ -289,10 +294,10 @@ function chartWeek() {
       '<p class="subline">Tap a cell to log an exercise for that day.</p><div class="legend"><span class="done"><i class="dot"></i>1 tap · Done</span><span class="heavy"><i class="dot"></i>2 taps · Heavy</span><span class="pr"><i class="dot"></i>3 taps · PR</span></div><div class="matrix-scroll" tabindex="0" aria-label="Scrollable exercise chart"><table class="matrix">' +
       header + rows + '</table></div></section>';
 }
-function history() {
+function historyScreen() {
   const prs = prList([...entries.values()]);
   return head(
-             'History', 'Workouts and personal records.',
+             'History', 'Workouts, gymnastics and personal records.',
              '<div class="periods"><button data-mode="calendar" aria-pressed="' +
                  (historyMode === 'calendar') +
                  '">Calendar</button><button data-mode="chart" aria-pressed="' + (historyMode === 'chart') +
@@ -345,10 +350,10 @@ function gaps(records) {
     return '<p class="empty-copy">After your first training day, this shows which exercises you left out. Today is still in progress.</p>';
   const rankedList = ranked(rs).filter(x => x.n < n);
   if (!rankedList.length)
-    return '<p class="empty-copy">You covered all 18 exercises in every logged session in this period.</p>';
+    return '<p class="empty-copy">You covered all 17 exercises in every logged session in this period.</p>';
   return '<p class="subline">Across ' + n + ' earlier training ' + (n === 1 ? 'day' : 'days') +
       '. Rest days and today are excluded.</p>' +
-      rankedList.slice(0, gapsExpanded ? 18 : 5)
+      rankedList.slice(0, gapsExpanded ? rankedList.length : 5)
           .map(
               e => '<div class="gap"><span>' + e.name + '<small>' + e.n + ' of ' + n +
                   ' sessions logged</small></span><b>' + (n - e.n) + ' missed</b></div>')
@@ -357,21 +362,12 @@ function gaps(records) {
                (gapsExpanded ? 'Show fewer' : 'Show all ' + rankedList.length) + '</button>' :
                                '')
 }
-function insights() {
-  const rs = windowItems(today, period), n = tally(rs), unique = new Set(rs.map(r => r.id)).size;
-  return head(
-             'Insights', 'Your training over the last ' + period + ' days.',
-             '<div class="periods">' +
-                 [7, 28, 90]
-                     .map(
-                         p => '<button data-period="' + p + '" aria-pressed="' + (period === p) + '">' + p +
-                             ' days</button>')
-                     .join('') +
-                 '</div>') +
-      '<div class="metrics">' +
+function workoutInsights() {
+  const rs = windowItems(today, period).filter(activeWorkout), n = tally(rs), unique = new Set(rs.map(r => r.id)).size;
+  return '<div class="metrics">' +
       [
         [n, 'Training days', 'cal'], [rs.length, 'Exercise logs', 'layers'],
-        [unique + ' / 18', 'Exercises covered', 'target'],
+        [unique + ' / ' + exercises.length, 'Exercises covered', 'target'],
         [rs.filter(r => r.level === 3).length, 'Personal records', 'trophy']
       ]
           .map(
@@ -405,7 +401,8 @@ function insights() {
            '<p class="empty-copy">Your most frequently logged exercises will appear here.</p>') +
       '</section></div>'
 }
-function render() {
+function render(animate=false) {
+  stopCounters();
   document.querySelectorAll('nav [data-view]').forEach(b => {
     if (b.dataset.view === view)
       b.setAttribute('aria-current', 'page');
@@ -413,9 +410,10 @@ function render() {
       b.removeAttribute('aria-current')
   });
   document.title =
-      'Bench Marx · ' + ({workout: 'Workout log', history: 'History', insights: 'Insights'}[view]);
+      'Bench Marx · ' + ({workout: 'Workout log', gymnastics:'Gymnastics log', history: 'History', insights: 'Insights'}[view]);
   main.innerHTML =
       (storageIssue ? '<div role="alert" class="warning">' + esc(storageIssue) + '</div>' : '') +
-      ({workout, history, insights}[view])() + footer();
-  if (view === 'workout') paintWave()
+      ({workout, gymnastics, history:historyScreen, insights}[view])() + footer();
+  if (view === 'workout') paintWave();
+  if(animate)enterScreen();
 }

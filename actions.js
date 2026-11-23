@@ -22,7 +22,14 @@ function change(day, id, record) {
   const k = key(day, id), before = entries.get(k);
   storeEntry(day, id, record);
   refreshLog(day, id);
-  notify(storageIssue || ((record ? levels[record.level] + ' · ' : 'Cleared · ') + byId[id].name), () => {
+  const skill=byId[id].skill;
+  const set=skill ? skillOn(day,skill) : [];
+  const finishedSet=skill && record && ((!before && set.length===repsPerSkill) || (record.level===2 && set.length===repsPerSkill && set.every(r=>r.level===2)));
+  if(finishedSet)document.querySelector('[data-skill-row="'+skill+'"]')?.classList.add('set-complete');
+  const completed=(!before && record && ((skill && !byId[id].optional && gymOn(day).filter(r=>!byId[r.id].optional).length===coreTarget) || (!skill && activeWorkout(record) && dayItems(day).length===exercises.length)));
+  if(record)playNotes(completed?[392,495,587,784]:finishedSet?[495,587,740]:[record.level===1?440:record.level===2?554:660]);
+  const milestone=completed ? 'Session complete · ' : finishedSet ? (set.every(r=>r.level===2)?'Five great reps · ':'Set of five · ') : '';
+  notify(storageIssue || (milestone+(record ? (byId[id].skill ? repNames[record.level] : levels[record.level]) + ' · ' : 'Cleared · ') + byId[id].name + (byId[id].skill?' · rep '+byId[id].rep:'')), () => {
     if (JSON.stringify(entries.get(k)) !== JSON.stringify(record || undefined)) {
       notify('This entry has since changed.');
       return
@@ -33,7 +40,9 @@ function change(day, id, record) {
   })
 }
 function refreshLog(day, id) {
-  if (view !== 'workout' || day !== selected || storageIssue) {
+  stopCounters();
+  if(view==='gymnastics' && day===selected && byId[id].skill && !storageIssue){repaintGym(day,id);return}
+  if (view !== 'workout' || day !== selected || storageIssue || byId[id].retired || byId[id].skill) {
     render();
     return
   }
@@ -47,7 +56,7 @@ function refreshLog(day, id) {
   }
   const rs = dayItems(selected), n = rs.length;
   document.querySelector('#done-count').textContent = n;
-  document.querySelector('.pct').textContent = Math.round(n / 18 * 100) + '%';
+  document.querySelector('.pct').textContent = Math.round(n / exercises.length * 100) + '%';
   document.querySelectorAll('.segs b').forEach((el, i) => el.classList.toggle('on', i < n));
   paintWave();
   document.querySelectorAll('[data-groupcount]').forEach(c => {
@@ -114,21 +123,24 @@ function prForm(day, id) {
           '<div class="dialog-actions"><button class="ghost" type="button" data-action="close">Cancel</button><button class="primary" type="submit">Save PR</button></div></form>',
       {day, id}, '<span class="prmark">' + icon('trophy') + '</span>')
 }
-function setDay(day) {
+function setDay(day, target = view==='gymnastics' ? 'gymnastics' : 'workout') {
   if (!validDay(day) || day > today) return;
   selected = day;
   editing = false;
-  view = 'workout';
+  view = target;
+  syncRoute();
   calDay = day;
   month = day.slice(0, 7);
   hideToast();
-  render();
+  render(true);
+  if(view==='workout'||view==='gymnastics')playNotes([392,495,587]);
   window.scrollTo(0, 0)
 }
 function selectView(v) {
   view = v;
+  syncRoute();
   editing = false;
-  if (v === 'workout') {
+  if (v === 'workout' || v === 'gymnastics') {
     selected = today;
     filter = -1
   }
@@ -137,30 +149,31 @@ function selectView(v) {
     month = calDay.slice(0, 7)
   }
   hideToast();
-  render();
+  render(true);
+  if(view==='workout'||view==='gymnastics')playNotes([392,495,587]);
   window.scrollTo(0, 0)
 }
 function dateDialog() {
   showDialog(
-      'Choose a workout date',
-      '<form id="date-form"><label class="field">Workout date<input name="day" type="date" required min="1900-01-01" max="' +
+      'Choose a log date',
+      '<form id="date-form"><label class="field">Log date<input name="day" type="date" required min="1900-01-01" max="' +
           today + '" value="' + selected +
-          '"></label><div class="dialog-actions"><button type="button" class="ghost" data-action="today">Today</button><button class="primary" type="submit">Open workout</button></div></form>')
+          '"></label><div class="dialog-actions"><button type="button" class="ghost" data-action="today">Today</button><button class="primary" type="submit">Open log</button></div></form>')
 }
 function dataDialog() {
   showDialog(
-      'Data &amp; backups',
-      '<p class="dialog-sub">Your workouts are saved in this browser. Export a backup to move them to another device. You can also import an earlier Formlog backup.</p><button class="choice" data-action="export">' +
+      'Preferences &amp; backups',
+      preferenceControls()+'<p class="dialog-sub">Your workouts and gymnastics reps are saved in this browser. Export a backup to move them to another device. You can also import an earlier Formlog backup.</p><button class="choice" data-action="export">' +
           icon('download') + 'Export backup</button><button class="choice" data-action="import">' +
           icon('history') +
           'Import backup</button><input class="file-input" id="import-file" type="file" accept=".json,application/json"><p class="note">' +
-          entries.size + ' exercise logs · ' + tally([...entries.values()]) + ' training days</p>')
+          [...entries.values()].filter(r=>!isGym(r)).length+' exercise logs · '+[...entries.values()].filter(isGym).length+' gymnastics reps · ' + tally([...entries.values()]) + ' training days</p>')
 }
 function exportFile() {
   const data = JSON.stringify(
       {
         app: 'Bench Marx',
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         entries:
             [...entries.values()].sort((a, b) => a.day.localeCompare(b.day) || a.id.localeCompare(b.id))
@@ -180,7 +193,7 @@ async function previewImport(file) {
   try {
     if (file.size > 25000000) throw Error('This backup is too large to import.');
     const data = JSON.parse(await file.text());
-    if (!['Bench Marx', 'Formlog'].includes(data.app) || data.version !== 1 || !Array.isArray(data.entries))
+    if (!['Bench Marx', 'Formlog'].includes(data.app) || ![1,2].includes(data.version) || !Array.isArray(data.entries))
       throw Error('Choose a Bench Marx or Formlog JSON backup.');
     const incoming = new Map();
     for (const item of data.entries) {
@@ -194,7 +207,7 @@ async function previewImport(file) {
     pendingImport = fresh;
     showDialog(
         'Import backup',
-        '<p class="dialog-sub">' + fresh.length + ' new exercise logs can be added. ' +
+        '<p class="dialog-sub">' + fresh.length + ' new log entries can be added. ' +
             (incoming.size - fresh.length) +
             ' existing entries will be kept as they are.</p><div class="dialog-actions"><button class="ghost" data-action="close">Cancel</button><button class="primary" data-action="merge" ' +
             (!fresh.length ? 'disabled' : '') + '>Import logs</button></div>');
@@ -208,6 +221,15 @@ async function previewImport(file) {
   }
 }
 function help() {
+  if(view==='insights'||view==='history'){
+    const message=view==='history'?'Choose a date to see both logs. Use Weekly chart to edit a workout across seven days.':'Pick Workout, Gymnastics or Patterns, then choose 7, 28 or 90 days. Each comparison uses the immediately preceding period of the same length.';
+    showDialog(view==='history'?'Using history':'Reading insights','<p class="dialog-sub">'+message+'</p><button class="primary wide" data-action="close">Got it</button>');
+    return;
+  }
+  if(view==='gymnastics'){
+    showDialog('How to log gymnastics','<p class="dialog-sub">Each skill has five numbered rep boxes. Tap a box once for achieved, again for great, and a third time to clear it.</p><p class="note">Both marks count once towards your five. Optional basics are kept outside the 25-rep target. Use Undo to reverse your last tap.</p><button class="primary wide" data-action="close">Got it</button>');
+    return;
+  }
   showDialog(
       'How to log a workout',
       '<p class="dialog-sub">Tap anywhere on an exercise row.</p>' +
@@ -237,11 +259,14 @@ document.addEventListener('click', event => {
   const el = event.target.closest('button');
   if (!el || el.disabled) return;
   const d = el.dataset;
+  if(d.pref){changePreference(d.pref,el);return}
   if (d.view) {
     rollover();
     selectView(d.view);
     return
   }
+  if(d.rep){rollover();tapRep(d.rep);return}
+  if(d.openLog && d.session){setDay(d.session,d.openLog);return}
   if (d.log) {
     rollover();
     if (editing) {
@@ -255,6 +280,8 @@ document.addEventListener('click', event => {
       change(selected, d.log, {day: selected, id: d.log, level: l + 1});
     return
   }
+  if(d.analysis){analysisMode=d.analysis;render(true);document.querySelector('[data-analysis="'+analysisMode+'"]')?.focus({preventScroll:true});return}
+  if(d.daySummary){openDaySummary(d.daySummary);return}
   if (d.mode) {
     historyMode = d.mode;
     render();
@@ -301,7 +328,7 @@ document.addEventListener('click', event => {
   if (d.period) {
     period = Number(d.period);
     gapsExpanded = false;
-    render();
+    render(true);
     document.querySelector('[data-period="' + period + '"]').focus({preventScroll: true});
     return
   }
@@ -342,6 +369,7 @@ document.addEventListener('click', event => {
       break;
     case 'merge': {
       const incoming = pendingImport || [];
+      loadEntries();
       for (const r of incoming)
         if (!entries.has(key(r.day, r.id))) storeEntry(r.day, r.id, r);
       closeDialog();
@@ -420,10 +448,16 @@ document.addEventListener('submit', e => {
     }
   }
 });
+document.addEventListener('toggle',e=>{if(e.target.id==='optional-skills')basicsExpanded=e.target.open},true);
 document.addEventListener('input', e => {
   if (e.target.name === 'result') e.target.setCustomValidity('')
 });
 document.addEventListener('change', e => {
+  if(e.target.id==='skill-detail'||e.target.id==='exercise-detail'){
+    const id=e.target.id;
+    if(id==='skill-detail')selectedSkill=e.target.value;else selectedExercise=e.target.value;
+    render();document.querySelector('#'+id)?.focus({preventScroll:true});return;
+  }
   if (e.target.id === 'import-file') previewImport(e.target.files[0])
 });
 window.addEventListener('storage', e => {
@@ -445,12 +479,20 @@ function scheduleMidnight() {
     scheduleMidnight()
   }, midnight.getTime() - now.getTime() + 100);
 }
+function syncRoute() {
+  if(window.history?.replaceState && window.location.hash !== '#'+view)
+    window.history.replaceState(null,'','#'+view);
+}
+function linkedView(){return window.location?.hash.slice(1) || 'workout';}
+function knownView(v){return ['workout','gymnastics','history','insights'].includes(v);}
+window.addEventListener('hashchange',()=>{const v=linkedView();if(knownView(v)&&v!==view)selectView(v);});
 scheduleMidnight();
 loadEntries();
-render();
+if(knownView(linkedView()))view=linkedView();
+render(true);
 
 function celebrateRecord() {
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  if (!motionAllowed()) return;
   const fx = document.createElement('span');
   fx.className = 'pr-spark';
   fx.setAttribute('aria-hidden', 'true');

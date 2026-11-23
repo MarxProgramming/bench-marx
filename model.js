@@ -8,8 +8,7 @@ const groups = [
       ['lat', 'One-arm lat pulldowns'], ['row', 'One-arm seated rows'],
       ['lateral', 'One-arm lateral raises'], ['face', 'One-arm face pulls'],
       ['rotator', 'One-arm rotator cuff external rotations'],
-      ['javelin', 'Controlled javelin throwing movements'], ['yraise', 'Cable Y-raises'],
-      ['pallof', 'Pallof presses', 'Core stability']
+      ['javelin', 'Controlled javelin throwing movements'], ['yraise', 'Cable Y-raises']
     ]
   },
   {
@@ -35,6 +34,31 @@ const groups = [
 const exercises =
     groups.flatMap((group, gi) => group.exercises.map(([id, name, detail]) => ({id, name, detail, gi})));
 const byId = Object.fromEntries(exercises.map(e => [e.id, e]));
+// Keep retired records readable in History and portable in backups.
+byId.pallof = {id:'pallof', name:'Pallof presses', retired:true};
+const skills = [
+  {id:'pirouette', name:'Handstand pirouette', family:'Handstands'},
+  {id:'shoulderstand', name:'Back shoulder handstand', family:'Handstands'},
+  {id:'standingtuck', name:'Standing back tuck', family:'Tumbling'},
+  {id:'roundofftuck', name:'Round-off back tuck', family:'Tumbling'},
+  {id:'pikestick', name:'Piked front somersault to stick', family:'Tumbling'},
+  {id:'hold', name:'Five-second handstand hold', family:'Optional basics', optional:true},
+  {id:'hsroll', name:'Handstand forward roll', family:'Optional basics', optional:true},
+  {id:'jumpstick', name:'Straight jump to stick', family:'Optional basics', optional:true}
+];
+const repsPerSkill = 5;
+const coreSkills = skills.filter(s=>!s.optional);
+const coreTarget = coreSkills.length * repsPerSkill;
+function repId(skillId, index){return 'gym_'+skillId+'_'+index}
+for (const skill of skills) {
+  for(let rep=1; rep<=repsPerSkill; rep++){
+    const id=repId(skill.id,rep);
+    byId[id]={id,name:skill.name,skill:skill.id,rep,optional:!!skill.optional};
+  }
+}
+function isGym(r){ return !!byId[r.id]?.skill }
+function activeWorkout(r){ return !isGym(r) && !byId[r.id].retired }
+function archivedDay(day){ return [...entries.values()].filter(r=>r.day===day && byId[r.id].retired) }
 const levels = ['Unlogged', 'Done', 'Heavy', 'PR'], colours = ['neutral', 'done', 'heavy', 'pr'];
 const entries = new Map();
 const prefix = 'formlog.v1.entry.';
@@ -68,6 +92,7 @@ function cleanRecord(r) {
   if (!r || !validDay(r.day) || typeof r.id !== 'string' || !Object.hasOwn(byId, r.id) ||
       ![1, 2, 3].includes(r.level))
     return null;
+  if(isGym(r) && r.level===3) return null;
   const out = {day: r.day, id: r.id, level: r.level};
   if (r.level === 3) {
     if (typeof r.result !== 'string' || !r.result.trim() || r.result.trim().length > 140 ||

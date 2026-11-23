@@ -1,4 +1,5 @@
 const shapes = {
+  settings: '<path d="M3 7h8m5 0h5M3 17h3m5 0h10"/><circle cx="13" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/>',
   grid:
       '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   insight: '<path d="M4 19V9m6 10V5m6 14v-7m5 7V3"/>',
@@ -29,7 +30,7 @@ function icon(k) {
 }
 function waveArt() {
   let ribbons = '';
-  for (let i = 17; i >= 0; i--) {
+  for (let i = exercises.length - 1; i >= 0; i--) {
     const off = i * 4.8, x = 19 + off, y = 150 - i * 2.8;
     const line = 'M ' + x + ' ' + y + ' c 34 0 42 -79 77 -78 s 50 76 88 59 s 43 -88 79 -96 s 43 21 66 17';
     const back = ' l 0 11 c -23 3 -30 -21 -66 -13 s -41 82 -79 98 s -53 -57 -88 -63 s -44 71 -77 74 Z';

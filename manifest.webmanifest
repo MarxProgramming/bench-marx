@@ -5,8 +5,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#101013",
-  "theme_color": "#101013",
+  "background_color": "#121018",
+  "theme_color": "#17131d",
   "icons": [
     {
       "src": "./icon-192.png",
@@ -18,5 +18,6 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "description": "Daily workout and gymnastics logs, rep quality and personal records."
 }
