@@ -3,7 +3,7 @@ const groups = [
   {
     name: 'Cable machine',
     short: 'Cable',
-    colour: '#b999f4',
+    colour: '#68c6ee',
     exercises: [
       ['lat', 'One-arm lat pulldowns'], ['row', 'One-arm seated rows'],
       ['lateral', 'One-arm lateral raises'], ['face', 'One-arm face pulls'],
@@ -14,7 +14,7 @@ const groups = [
   {
     name: 'Weights',
     short: 'Weights',
-    colour: '#85b9f8',
+    colour: '#699df1',
     exercises: [
       ['bench', 'Bench press'], ['overhead', 'Overhead press'], ['rdl', 'Romanian deadlifts (RDLs)'],
       ['split', 'Bulgarian split squats'], ['calf', 'Standing calf raises']
@@ -23,7 +23,7 @@ const groups = [
   {
     name: 'Plyometrics and mobility',
     short: 'Plyo & mobility',
-    colour: '#79cbb3',
+    colour: '#e8ae81',
     exercises: [
       ['pogo', 'Controlled pogo jumps'], ['jump', 'Vertical jumps'],
       ['swings', 'Forward and sideways leg swings'], ['hip', 'Hip mobility'],

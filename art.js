@@ -35,9 +35,9 @@ function waveArt() {
     const line = 'M ' + x + ' ' + y + ' c 34 0 42 -79 77 -78 s 50 76 88 59 s 43 -88 79 -96 s 43 21 66 17';
     const back = ' l 0 11 c -23 3 -30 -21 -66 -13 s -41 82 -79 98 s -53 -57 -88 -63 s -44 71 -77 74 Z';
     ribbons += '<g data-ridge="' + i + '"><path d="' + line + back +
-        '" fill="url(#ribbon)" stroke="#292036" stroke-width=".8"/><path class="crest" d="' + line +
+        '" fill="url(#ribbon)" stroke="#0b2e52" stroke-width=".8"/><path class="crest" d="' + line +
         '" fill="none" stroke="url(#edge)" stroke-width="1.65"/></g>'
   }
-  return '<svg class="wave" viewBox="0 -24 430 217" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><linearGradient id="ribbon" x1=".08" y1="1" x2=".85" y2="0" gradientUnits="objectBoundingBox"><stop stop-color="#514265"/><stop offset=".28" stop-color="#9b65db"/><stop offset=".51" stop-color="#533970"/><stop offset=".77" stop-color="#ae7df4"/><stop offset="1" stop-color="#593f85"/></linearGradient><linearGradient id="edge"><stop stop-color="#72508d"/><stop offset=".22" stop-color="#d6aafa"/><stop offset=".48" stop-color="#8a5db7"/><stop offset=".75" stop-color="#d7adff"/><stop offset="1" stop-color="#956cbb"/></linearGradient></defs>' +
+  return '<svg class="wave" viewBox="0 -24 430 217" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><linearGradient id="ribbon" x1=".08" y1="1" x2=".85" y2="0" gradientUnits="objectBoundingBox"><stop stop-color="#103855"/><stop offset=".28" stop-color="#2d94dd"/><stop offset=".51" stop-color="#205b92"/><stop offset=".77" stop-color="#62beef"/><stop offset="1" stop-color="#20507f"/></linearGradient><linearGradient id="edge"><stop stop-color="#2976a2"/><stop offset=".22" stop-color="#a5e5ff"/><stop offset=".48" stop-color="#41a8ef"/><stop offset=".75" stop-color="#c4ecff"/><stop offset="1" stop-color="#6eacd3"/></linearGradient></defs>' +
       ribbons + '</svg>'
 }

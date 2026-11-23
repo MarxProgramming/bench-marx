@@ -167,7 +167,7 @@ function dataDialog() {
           icon('download') + 'Export backup</button><button class="choice" data-action="import">' +
           icon('history') +
           'Import backup</button><input class="file-input" id="import-file" type="file" accept=".json,application/json"><p class="note">' +
-          [...entries.values()].filter(r=>!isGym(r)).length+' exercise logs · '+[...entries.values()].filter(isGym).length+' gymnastics reps · ' + tally([...entries.values()]) + ' training days</p>')
+          entrySummary()+'</p>'+resetActions())
 }
 function exportFile() {
   const data = JSON.stringify(
@@ -227,7 +227,7 @@ function help() {
     return;
   }
   if(view==='gymnastics'){
-    showDialog('How to log gymnastics','<p class="dialog-sub">Each skill has five numbered rep boxes. Tap a box once for achieved, again for great, and a third time to clear it.</p><p class="note">Both marks count once towards your five. Optional basics are kept outside the 25-rep target. Use Undo to reverse your last tap.</p><button class="primary wide" data-action="close">Got it</button>');
+    showDialog('How to log gymnastics','<p class="dialog-sub">Each skill has five numbered rep boxes. Tap a box once for achieved, again for great, and a third time to clear it. The Untick button underneath clears either mark immediately.</p><p class="note">Both marks count once towards your five. Optional basics are kept outside the 25-rep target. Use Undo to reverse your last tap.</p><button class="primary wide" data-action="close">Got it</button>');
     return;
   }
   showDialog(
@@ -241,7 +241,7 @@ function help() {
                   (t, i) => '<div class="help-row ' + colours[i + 1] + '"><i class="dot"></i><span>' + t +
                       '</span></div>')
               .join('') +
-          '<p class="note">Each ridge on the session wave represents one exercise. It lifts and changes colour when you log it.</p><p class="note">Use Undo after a tap, or choose Edit above the exercise list to change an earlier entry. Tap a saved PR to edit it. A new log opens each day, and past workouts stay in History.</p><button class="primary wide" data-action="close">Got it</button>')
+          '<p class="note">Each ridge on the session wave represents one exercise. It lifts and changes colour when you log it.</p><p class="note">Use Untick beside a logged exercise to clear it. Use Undo after a tap, or choose Edit above the exercise list to change an earlier entry. Tap a saved PR to edit it. A new log opens each day, and past workouts stay in History.</p><button class="primary wide" data-action="close">Got it</button>')
 }
 function rollover() {
   const now = iso();
@@ -259,6 +259,8 @@ document.addEventListener('click', event => {
   const el = event.target.closest('button');
   if (!el || el.disabled) return;
   const d = el.dataset;
+  if(d.untick){if(entries.has(key(selected,d.untick)))change(selected,d.untick,null);return;}
+  if(d.restore){restoreJournal(d.restore);return;}
   if(d.pref){changePreference(d.pref,el);return}
   if (d.view) {
     rollover();
@@ -290,6 +292,7 @@ document.addEventListener('click', event => {
   }
   if (d.cell) {
     const [day, id] = d.cell.split('.'), l = entries.get(d.cell)?.level || 0;
+    if(chartUntick){if(l)change(day,id,null);return;}
     if (l >= 2) {
       prForm(day, id);
       return
@@ -339,6 +342,10 @@ document.addEventListener('click', event => {
     return
   }
   switch (d.action) {
+    case 'review-reset':reviewReset();break;
+    case 'confirm-reset':resetJournal();break;
+    case 'restore-list':recoveryList();break;
+    case 'chart-untick':chartUntick=!chartUntick;render();document.querySelector('.chart-untick')?.focus();break;
     case 'prev':
       setDay(offset(selected, -1));
       break;

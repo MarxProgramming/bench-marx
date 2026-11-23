@@ -142,7 +142,10 @@ function row(e) {
       esc(e.name + ', ' + levels[l] + '. ' + action) + '"><span class="exc-text"><span class="exname">' +
       e.name + '</span>' + (extra ? '<span class="detail">' + esc(extra) + '</span>' : '') + '</span>' +
       (l ? '<span class="status">' + levels[l] + '</span>' : '') + '<span class="plus">' + icon(indicator) +
-      '</span></button></div>';
+      '</span></button>'+ (l?clearControl(e.id,e.name):'')+'</div>';
+}
+function clearControl(id,label){
+  return '<button class="untick" data-untick="'+id+'" aria-label="Untick '+esc(label)+'">Untick</button>';
 }
 function groupList() {
   return groups
@@ -186,7 +189,7 @@ function recent() {
 function footer() {
   return '<div class="page-end"><span class="fine inline">' + icon('disk') +
       (storageIssue ? 'Storage needs attention' : 'Saved on this device') +
-      '</span><button data-action="data">Data &amp; backups</button></div>'
+      '</span><button data-action="data">Settings &amp; backups</button></div>'
 }
 function workout() {
   const sub = fmt(selected, {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
@@ -253,7 +256,7 @@ function historicDay() {
       '<button class="ghost wide" data-open-log="gymnastics" data-session="'+calDay+'">'+(gs.length?'Edit gymnastics':'Open gymnastics log')+'</button>'
 }
 let prLimit = 10;
-let historyMode = 'calendar';
+let historyMode = 'calendar', chartUntick = false;
 function chartWeek() {
   const start = monday(calDay), ds = Array.from({length: 7}, (_, i) => offset(start, i));
   const label = fmt(start, {day: 'numeric', month: 'short'}) + ' – ' +
@@ -283,7 +286,7 @@ function chartWeek() {
                                       levels[l];
                                   return '<td><button class="cell ' + colours[l] + '" data-cell="' +
                                       key(d, e.id) + '" aria-label="' + esc(title) + '" title="' +
-                                      esc(title) + '" ' + (d > today ? 'disabled' : '') + '>' +
+                                      esc(title) + '" ' + (d > today || (chartUntick && !l) ? 'disabled' : '') + '>' +
                                       icon(['plus', 'check', 'heavy', 'trophy'][l]) + '</button></td>';
                                 }).join('') +
                               '</tr>')
@@ -291,7 +294,7 @@ function chartWeek() {
                   '</tbody>')
           .join('');
   return '<section class="card chartcard matrix-card">' + top +
-      '<p class="subline">Tap a cell to log an exercise for that day.</p><div class="legend"><span class="done"><i class="dot"></i>1 tap · Done</span><span class="heavy"><i class="dot"></i>2 taps · Heavy</span><span class="pr"><i class="dot"></i>3 taps · PR</span></div><div class="matrix-scroll" tabindex="0" aria-label="Scrollable exercise chart"><table class="matrix">' +
+      '<p class="subline">'+(chartUntick?'Tap a marked cell to untick it.':'Tap a cell to log an exercise for that day.')+'</p><button class="sheet-edit chart-untick" data-action="chart-untick" aria-pressed="'+chartUntick+'">Untick cells</button><div class="legend"><span class="done"><i class="dot"></i>1 tap · Done</span><span class="heavy"><i class="dot"></i>2 taps · Heavy</span><span class="pr"><i class="dot"></i>3 taps · PR</span></div><div class="matrix-scroll" tabindex="0" aria-label="Scrollable exercise chart"><table class="matrix">' +
       header + rows + '</table></div></section>';
 }
 function historyScreen() {

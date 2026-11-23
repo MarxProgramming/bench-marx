@@ -67,7 +67,7 @@ function enterScreen() {
     el.style.setProperty('--step',Math.min(i,22));
     el.classList.add('enter-step');
   });
-  main.querySelectorAll('.trace-tile,.bartrack em,.quality-track').forEach(el=>el.classList.add('enter-step'));
+  main.querySelectorAll('.flight-path,.bartrack em,.quality-track').forEach(el=>el.classList.add('enter-step'));
   if(!window.requestAnimationFrame)return;
   activeCounters=Array.from(main.querySelectorAll('[data-counter]'),el=>({el,value:Number(el.dataset.counter),suffix:el.dataset.suffix||''}));
   if(!activeCounters.length)return;
