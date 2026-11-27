@@ -12,21 +12,36 @@ function updateStorageStatus() {
       unsaved.size ? 'Changes are in this tab only. Export a backup before closing.' : readWarning;
 }
 function loadEntries() {
-  const loaded = new Map();
+  const loaded = new Map(), saved = new Map();
   try {
     let bad = false;
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (!k?.startsWith(prefix)) continue;
       try {
-        const r = cleanRecord(JSON.parse(localStorage.getItem(k)));
-        if (r && k === prefix + key(r.day, r.id))
-          loaded.set(key(r.day, r.id), r);
-        else
-          bad = true;
+        const item = JSON.parse(localStorage.getItem(k));
+        saved.set(k.slice(prefix.length),item);
       } catch {
         bad = true
       }
+    }
+    daily.clear();
+    for (const [id,item] of saved) {
+      if (!item?.type) continue;
+      const record = cleanDaily(item);
+      if (record && dailyKey(record) === id) daily.set(id,record);
+      else bad = true;
+    }
+    for (const [id,item] of unsaved) {
+      if (item?.type) daily.set(id,item);
+      else if (!item) daily.delete(id);
+    }
+    rebuildCatalogue();
+    for (const [id,item] of saved) {
+      if (item?.type) continue;
+      const record = cleanRecord(item);
+      if (record && key(record.day,record.id) === id) loaded.set(id,record);
+      else bad = true;
     }
     entries.clear();
     for (const [k, r] of loaded) entries.set(k, r);
@@ -35,7 +50,7 @@ function loadEntries() {
     readWarning = 'Browser storage is unavailable. Export a backup before closing.'
   }
   for (const [k, r] of unsaved) {
-    if (r)
+    if (r && !r.type)
       entries.set(k, r);
     else
       entries.delete(k)
@@ -43,7 +58,9 @@ function loadEntries() {
   updateStorageStatus();
 }
 function storeEntry(day, id, r) {
-  const k = key(day, id);
+  writeJournal(key(day,id),r,entries);
+}
+function writeJournal(k,r,records) {
   try {
     if (r)
       localStorage.setItem(prefix + k, JSON.stringify(r));
@@ -54,9 +71,9 @@ function storeEntry(day, id, r) {
     unsaved.set(k, r || null)
   }
   if (r)
-    entries.set(k, r);
+    records.set(k, r);
   else
-    entries.delete(k);
+    records.delete(k);
   updateStorageStatus();
 }
 function btn(action, label, glyph, cls = '') {
@@ -74,22 +91,23 @@ function controls() {
       '</button><button class="chev" aria-label="Next day" data-action="next" ' +
       (selected >= today ? 'disabled' : '') + '>' + icon('next') + '</button></div>'
 }
-function segment(n) {
-  return Array.from({length: exercises.length}, (_, i) => '<b class="' + (i < n ? 'on' : '') + '"></b>').join('')
+function segment(n,target) {
+  return Array.from({length:target}, (_, i) => '<b class="' + (i < n ? 'on' : '') + '"></b>').join('')
 }
 function hero() {
-  const n = dayItems(selected).length;
-  return '<section class="hero card" aria-label="Session wave progress">' + waveArt() +
+  const n = dayItems(selected).length, target=exercisesAt(selected).length;
+  return '<section class="hero card" aria-label="Session wave progress">' + waveArt(target) +
       '<div class="hero-label">' + icon('wave') +
-      'Session wave</div><div class="stat"><span id="done-count" data-counter="' + n + '">' + n +
-      '</span><small>/ ' + exercises.length + '</small></div><div class="descriptor">exercises logged</div><div class="meterline"><span class="segs" aria-hidden="true">' +
-      segment(n) + '</span><span class="pct" data-counter="' + percentage(n,exercises.length) + '" data-suffix="%">' + Math.round(100 * n / exercises.length) + '%</span></div></section>'
+      'Session wave</div>'+weightButton(selected)+'<div class="stat"><span id="done-count" data-counter="' + n + '">' + n +
+      '</span><small>/ ' + target + '</small></div><div class="descriptor">exercises logged</div><div class="meterline"><span class="segs" aria-hidden="true">' +
+      segment(n,target) + '</span><span class="pct" data-counter="' + percentage(n,target) + '" data-suffix="%">' + percentage(n,target) + '%</span></div></section>'
 }
 function paintWave() {
   const records = dayItems(selected);
   const m = new Map(records.map(r => [r.id, r]));
+  const list = exercisesAt(selected);
   document.querySelectorAll('[data-ridge]').forEach(g => {
-    const r = m.get(exercises[Number(g.dataset.ridge)].id);
+    const r = m.get(list[Number(g.dataset.ridge)].id);
     g.style.transform = 'translateY(' + (r ? -3 - r.level * 3 : 0) + 'px)';
     const crest = g.querySelector('.crest');
     crest.style.stroke = r ? 'var(--' + ['', 'green', 'orange', 'red'][r.level] + ')' : '';
@@ -109,17 +127,17 @@ function week(gym=false) {
               'aria-label="' + fmt(d, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + n +
               (gym?' reps':' exercises')+'"><span class="stack" aria-hidden="true">' +
               Array
-                  .from({length: 6}, (_, j) => '<b class="' + (j < Math.ceil(6*n/(gym?coreTarget:exercises.length)) ? 'on' : '') + '"></b>')
+                  .from({length: 6}, (_, j) => '<b class="' + (j < Math.ceil(6*n/(gym?coreTarget:exercisesAt(d).length)) ? 'on' : '') + '"></b>')
                   .join('') +
               '</span><span>' + fmt(d, {weekday: 'short'}).slice(0, 2) + '</span></button>'
         }).join('') +
       '</div>'
 }
-function balance(records) {
+function balance(records, list=exercises) {
   return groups
       .map((g, i) => {
         const pool = records.filter(r => byId[r.id].gi === i), n = new Set(pool.map(r => r.id)).size,
-              total = g.exercises.length;
+              total = list.filter(e => e.gi === i).length;
         return '<div class="balance-line"><div class="label-line"><span>' + g.name + '</span><span>' + n +
             ' / ' + total + '</span></div><div class="bartrack"><em style="--c:' + g.colour +
             ';width:' + 100 * n / total + '%"></em></div></div>'
@@ -128,7 +146,7 @@ function balance(records) {
 }
 function balanceCard() {
   return '<div class="card-head"><h2>Session balance</h2>' + icon('layers') +
-      '</div><p class="subline">Coverage by exercise group</p>' + balance(dayItems(selected))
+      '</div><p class="subline">Coverage by exercise group</p>' + balance(dayItems(selected),exercisesAt(selected))
 }
 function row(e) {
   const r = entries.get(key(selected, e.id)), l = r?.level || 0;
@@ -140,7 +158,7 @@ function row(e) {
   return '<div class="exercise ' + colours[l] + '" data-row="' + e.id + '" data-level="' + l +
       '"><button class="log" data-log="' + e.id + '" aria-label="' +
       esc(e.name + ', ' + levels[l] + '. ' + action) + '"><span class="exc-text"><span class="exname">' +
-      e.name + '</span>' + (extra ? '<span class="detail">' + esc(extra) + '</span>' : '') + '</span>' +
+      esc(e.name) + '</span>' + (extra ? '<span class="detail">' + esc(extra) + '</span>' : '') + '</span>' +
       (l ? '<span class="status">' + levels[l] + '</span>' : '') + '<span class="plus">' + icon(indicator) +
       '</span></button>'+ (l?clearControl(e.id,e.name):'')+'</div>';
 }
@@ -151,16 +169,16 @@ function groupList() {
   return groups
       .map((g, i) => {
         if (filter !== -1 && filter !== i) return '';
-        const es = exercises.filter(e => e.gi === i),
+        const es = exercisesAt(selected).filter(e => e.gi === i),
               n = es.filter(e => entries.has(key(selected, e.id))).length;
         return '<section class="ex-group"><div class="group-label" style="--group-colour:' + g.colour +
             '"><h3>' + g.name + '</h3><span data-groupcount="' + i + '" class="count">' + n + ' / ' +
-            es.length + '</span></div>' + es.map(row).join('') + '</section>'
+            es.length + '</span></div>' + es.map(row).join('') + '<button class="add-exercise" data-add-exercise="'+i+'" aria-label="Add exercise to '+g.name+'">'+icon('plus')+' Add exercise</button></section>'
       })
       .join('')
 }
 function filterBtns() {
-  return [-1, 0, 1, 2]
+  return [-1, ...groups.keys()]
       .map(
           i => '<button class="chip" data-filter="' + i + '" aria-pressed="' + (filter === i) + '">' +
               (i < 0 ? 'All' : groups[i].short) + '</button>')
@@ -175,7 +193,7 @@ function prList(records, limit = Infinity) {
 }
 function recordRow(r) {
   return '<button class="record-row" data-record="' + key(r.day, r.id) + '"><span class="record-icon">' +
-      icon('trophy') + '</span><span><strong>' + byId[r.id].name + '</strong><span class="detail">' +
+      icon('trophy') + '</span><span><strong>' + esc(byId[r.id].name) + '</strong><span class="detail">' +
       esc(r.result) + ' · ' + r.reps + ' ' + (r.reps === 1 ? 'rep' : 'reps') +
       '</span><span class="fine">' + fmt(r.day, {day: 'numeric', month: 'short', year: 'numeric'}) +
       '</span></span></button>'
@@ -221,7 +239,7 @@ function monthly() {
           if (d.slice(0, 7) !== month) return '<span></span>';
           const rs = [...dayItems(d), ...archivedDay(d)], gs=gymOn(d);
           return '<button data-calday="' + d + '" aria-label="' +
-              fmt(d, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + rs.length + ' exercises, ' + gs.length + ' gym reps" aria-pressed="' + (d === calDay) + '" class="cal-cell ' +
+              fmt(d, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + rs.length + ' exercises' + (isDan ? '' : ', '+gs.length+' gym reps') + '" aria-pressed="' + (d === calDay) + '" class="cal-cell ' +
               (d === today ? 'is-today' : '') + '" ' + (d > today ? 'disabled' : '') + '>' +
               Number(d.slice(-2)) + '<span class="cal-dots">' +
               [1, 2, 3]
@@ -238,7 +256,7 @@ function historicDay() {
       '</h2><span class="count">' + rs.length + ' exercise logs</span></div>' +
       (rs.length ? '<div class="history-log">' +
                rs.map(
-                     r => '<div><span>' + byId[r.id].name +
+                     r => '<div><span>' + esc(byId[r.id].name) +
                          (r.level === 3 ?
                               '<span class="detail">' + esc(r.result) + ' · ' + r.reps + ' reps</span>' :
                               '') +
@@ -253,7 +271,8 @@ function historicDay() {
         const reps=skillOn(calDay,skill.id),q=qualityStats(reps);
         return reps.length?'<div class="gap"><span>'+skill.name+'</span><b>'+q.total+'/5 · '+q.great+' great</b></div>':'';
       }).join('')+'</div>':'')+
-      '<button class="ghost wide" data-open-log="gymnastics" data-session="'+calDay+'">'+(gs.length?'Edit gymnastics':'Open gymnastics log')+'</button>'
+      (isDan ? '<button class="ghost wide" data-open-log="calories" data-session="'+calDay+'">Open calorie log</button>' :
+        '<button class="ghost wide" data-open-log="gymnastics" data-session="'+calDay+'">'+(gs.length?'Edit gymnastics':'Open gymnastics log')+'</button>')
 }
 let prLimit = 10;
 let historyMode = 'calendar', chartUntick = false;
@@ -278,7 +297,7 @@ function chartWeek() {
                   '</th></tr>' +
                   exercises.filter(e => e.gi === gi)
                       .map(
-                          e => '<tr><th scope="row">' + e.name + '</th>' +
+                          e => '<tr><th scope="row">' + esc(e.name) + '</th>' +
                               ds.map(d => {
                                   const r = entries.get(key(d, e.id)), l = r?.level || 0,
                                         title = e.name + ' · ' +
@@ -286,7 +305,7 @@ function chartWeek() {
                                       levels[l];
                                   return '<td><button class="cell ' + colours[l] + '" data-cell="' +
                                       key(d, e.id) + '" aria-label="' + esc(title) + '" title="' +
-                                      esc(title) + '" ' + (d > today || (chartUntick && !l) ? 'disabled' : '') + '>' +
+                                      esc(title) + '" ' + (d > today || (chartUntick && !l) || (e.created && d < e.created && !l) ? 'disabled' : '') + '>' +
                                       icon(['plus', 'check', 'heavy', 'trophy'][l]) + '</button></td>';
                                 }).join('') +
                               '</tr>')
@@ -300,7 +319,7 @@ function chartWeek() {
 function historyScreen() {
   const prs = prList([...entries.values()]);
   return head(
-             'History', 'Workouts, gymnastics and personal records.',
+             'History', isDan ? 'Workouts and personal records.' : 'Workouts, gymnastics and personal records.',
              '<div class="periods"><button data-mode="calendar" aria-pressed="' +
                  (historyMode === 'calendar') +
                  '">Calendar</button><button data-mode="chart" aria-pressed="' + (historyMode === 'chart') +
@@ -351,15 +370,17 @@ function gaps(records) {
   const rs = records.filter(record => record.day < today), n = tally(rs);
   if (!n)
     return '<p class="empty-copy">After your first training day, this shows which exercises you left out. Today is still in progress.</p>';
-  const rankedList = ranked(rs).filter(x => x.n < n);
+  const days = [...new Set(rs.map(r=>r.day))];
+  const rankedList = ranked(rs).map(e => ({...e, eligible:e.created ? days.filter(d => d >= e.created).length : n}))
+    .filter(x => x.n < x.eligible).sort((a,b) => (b.eligible-b.n)-(a.eligible-a.n));
   if (!rankedList.length)
-    return '<p class="empty-copy">You covered all 17 exercises in every logged session in this period.</p>';
+    return '<p class="empty-copy">You covered every exercise in every logged session in this period.</p>';
   return '<p class="subline">Across ' + n + ' earlier training ' + (n === 1 ? 'day' : 'days') +
       '. Rest days and today are excluded.</p>' +
       rankedList.slice(0, gapsExpanded ? rankedList.length : 5)
           .map(
-              e => '<div class="gap"><span>' + e.name + '<small>' + e.n + ' of ' + n +
-                  ' sessions logged</small></span><b>' + (n - e.n) + ' missed</b></div>')
+              e => '<div class="gap"><span>' + esc(e.name) + '<small>' + e.n + ' of ' + e.eligible +
+                  ' sessions logged</small></span><b>' + (e.eligible - e.n) + ' missed</b></div>')
           .join('') +
       (rankedList.length > 5 ? '<button class="small-link" data-action="gaps">' +
                (gapsExpanded ? 'Show fewer' : 'Show all ' + rankedList.length) + '</button>' :
@@ -398,7 +419,7 @@ function workoutInsights() {
                .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))
                .slice(0, 4)
                .map(
-                   e => '<div class="gap"><span>' + e.name + '</span><b>' + e.n + ' / ' + n +
+                   e => '<div class="gap"><span>' + esc(e.name) + '</span><b>' + e.n + ' / ' + n +
                        ' days</b></div>')
                .join('') :
            '<p class="empty-copy">Your most frequently logged exercises will appear here.</p>') +
@@ -413,10 +434,10 @@ function render(animate=false) {
       b.removeAttribute('aria-current')
   });
   document.title =
-      'Bench Marx · ' + ({workout: 'Workout log', gymnastics:'Gymnastics log', history: 'History', insights: 'Insights'}[view]);
+      appName + ' · ' + ({calories:'Calories',workout: 'Workout log', gymnastics:'Gymnastics log', history: 'History', insights: 'Insights'}[view]);
   main.innerHTML =
       (storageIssue ? '<div role="alert" class="warning">' + esc(storageIssue) + '</div>' : '') +
-      ({workout, gymnastics, history:historyScreen, insights}[view])() + footer();
+      ({workout, gymnastics, calories, history:historyScreen, insights}[view])() + footer();
   if (view === 'workout') paintWave();
   if(animate)enterScreen();
 }

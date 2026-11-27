@@ -1,4 +1,6 @@
 'use strict';
+const isDan = document.documentElement?.dataset.journal === 'dan';
+const appName = isDan ? 'Bench Dan' : 'Bench Marx';
 const groups = [
   {
     name: 'Cable machine',
@@ -25,18 +27,21 @@ const groups = [
     short: 'Plyo & mobility',
     colour: '#e8ae81',
     exercises: [
-      ['pogo', 'Controlled pogo jumps'], ['jump', 'Vertical jumps'],
-      ['swings', 'Forward and sideways leg swings'], ['hip', 'Hip mobility'],
-      ['shoulder', 'Shoulder mobility']
+      ['pogo', 'Hops across floor', 'Single-leg pogo hops'],
+      ['floorjumps', 'Straight jumps across floor'], ['jump', 'Vertical jumps', 'High straight jumps'],
+      ['swings', 'Kicks', 'Forward and sideways hip mobility kicks'], ['shoulder', 'Bridges']
     ]
   }
 ];
+if (isDan) groups.pop();
 const exercises =
     groups.flatMap((group, gi) => group.exercises.map(([id, name, detail]) => ({id, name, detail, gi})));
+const baseExerciseCount = exercises.length;
 const byId = Object.fromEntries(exercises.map(e => [e.id, e]));
 // Keep retired records readable in History and portable in backups.
 byId.pallof = {id:'pallof', name:'Pallof presses', retired:true};
-const skills = [
+if (!isDan) byId.hip = {id:'hip', name:'Hip mobility', retired:true};
+const skills = isDan ? [] : [
   {id:'pirouette', name:'Handstand pirouette', family:'Handstands'},
   {id:'shoulderstand', name:'Back shoulder handstand', family:'Handstands'},
   {id:'standingtuck', name:'Standing back tuck', family:'Tumbling'},
@@ -61,7 +66,7 @@ function activeWorkout(r){ return !isGym(r) && !byId[r.id].retired }
 function archivedDay(day){ return [...entries.values()].filter(r=>r.day===day && byId[r.id].retired) }
 const levels = ['Unlogged', 'Done', 'Heavy', 'PR'], colours = ['neutral', 'done', 'heavy', 'pr'];
 const entries = new Map();
-const prefix = 'formlog.v1.entry.';
+const prefix = isDan ? 'bench-dan.v1.entry.' : 'formlog.v1.entry.';
 function iso(d = new Date()) {
   return [
     d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')
@@ -88,8 +93,8 @@ function validDay(s) {
 function key(day, id) {
   return day + '.' + id
 }
-function cleanRecord(r) {
-  if (!r || !validDay(r.day) || typeof r.id !== 'string' || !Object.hasOwn(byId, r.id) ||
+function cleanRecord(r, catalogue = byId) {
+  if (!r || !validDay(r.day) || typeof r.id !== 'string' || !Object.hasOwn(catalogue, r.id) ||
       ![1, 2, 3].includes(r.level))
     return null;
   if(isGym(r) && r.level===3) return null;
@@ -105,6 +110,9 @@ function cleanRecord(r) {
     if (Number.isSafeInteger(r.recordedAt) && r.recordedAt > 0) out.recordedAt = r.recordedAt;
   }
   return out;
+}
+function exercisesAt(day) {
+  return exercises.filter(e => !e.created || e.created <= day);
 }
 function dayItems(day) {
   return exercises.map(e => entries.get(key(day, e.id))).filter(Boolean)

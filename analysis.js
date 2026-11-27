@@ -1,4 +1,4 @@
-let analysisMode='workout', selectedSkill=coreSkills[0].id, selectedExercise=exercises[0].id;
+let analysisMode='workout', selectedSkill=coreSkills[0]?.id, selectedExercise=exercises[0].id;
 function periodChooser(){
   return '<div class="periods" aria-label="Analysis period">'+[7,28,90].map(n=>'<button data-period="'+n+'" aria-pressed="'+(period===n)+'">'+n+' days</button>').join('')+'</div>';
 }
@@ -10,7 +10,7 @@ function panel(title,subtitle,body,cls=''){
 }
 function chooseItem(id,label,items,selectedId) {
   return '<label class="picker"><span>'+label+'</span><select id="'+id+'">'+
-    items.map(x=>'<option value="'+x.id+'" '+(x.id===selectedId?'selected':'')+'>'+x.name+'</option>').join('')+'</select></label>';
+    items.map(x=>'<option value="'+x.id+'" '+(x.id===selectedId?'selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select></label>';
 }
 function blank(text){return '<p class="empty-copy">'+text+'</p>'}
 function shortLine(label,value){return '<div class="fact-line"><span>'+label+'</span><b>'+value+'</b></div>'}
@@ -131,9 +131,10 @@ function openDaySummary(day){
 }
 function insights() {
   const all=windowItems(today,period),previous=windowItems(offset(today,-period),period);
-  const tabs='<div class="analysis-tabs" aria-label="Analysis focus">'+[['workout','Workout'],['gymnastics','Gymnastics'],['patterns','Patterns']].map(([v,label])=>'<button data-analysis="'+v+'" aria-pressed="'+(analysisMode===v)+'">'+label+'</button>').join('')+'</div>';
+  const tabs='<div class="analysis-tabs" aria-label="Analysis focus">'+(isDan ? [['workout','Workout'],['weight','Weight']] : [['workout','Workout'],['gymnastics','Gymnastics'],['patterns','Patterns'],['weight','Weight']]).map(([v,label])=>'<button data-analysis="'+v+'" aria-pressed="'+(analysisMode===v)+'">'+label+'</button>').join('')+'</div>';
   let body;
-  if(analysisMode==='gymnastics')body=gymInsights(all.filter(isGym),previous.filter(isGym));
+  if(analysisMode==='weight')body=weightInsights();
+  else if(analysisMode==='gymnastics')body=gymInsights(all.filter(isGym),previous.filter(isGym));
   else if(analysisMode==='patterns')body=patternInsights(all);
   else{
     const rs=all.filter(activeWorkout);

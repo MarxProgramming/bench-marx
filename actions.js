@@ -26,7 +26,7 @@ function change(day, id, record) {
   const set=skill ? skillOn(day,skill) : [];
   const finishedSet=skill && record && ((!before && set.length===repsPerSkill) || (record.level===2 && set.length===repsPerSkill && set.every(r=>r.level===2)));
   if(finishedSet)document.querySelector('[data-skill-row="'+skill+'"]')?.classList.add('set-complete');
-  const completed=(!before && record && ((skill && !byId[id].optional && gymOn(day).filter(r=>!byId[r.id].optional).length===coreTarget) || (!skill && activeWorkout(record) && dayItems(day).length===exercises.length)));
+  const completed=(!before && record && ((skill && !byId[id].optional && gymOn(day).filter(r=>!byId[r.id].optional).length===coreTarget) || (!skill && activeWorkout(record) && dayItems(day).length===exercisesAt(day).length)));
   if(record)playNotes(completed?[392,495,587,784]:finishedSet?[495,587,740]:[record.level===1?440:record.level===2?554:660]);
   const milestone=completed ? 'Session complete · ' : finishedSet ? (set.every(r=>r.level===2)?'Five great reps · ':'Set of five · ') : '';
   notify(storageIssue || (milestone+(record ? (byId[id].skill ? repNames[record.level] : levels[record.level]) + ' · ' : 'Cleared · ') + byId[id].name + (byId[id].skill?' · rep '+byId[id].rep:'')), () => {
@@ -56,12 +56,12 @@ function refreshLog(day, id) {
   }
   const rs = dayItems(selected), n = rs.length;
   document.querySelector('#done-count').textContent = n;
-  document.querySelector('.pct').textContent = Math.round(n / exercises.length * 100) + '%';
+  document.querySelector('.pct').textContent = percentage(n,exercisesAt(selected).length) + '%';
   document.querySelectorAll('.segs b').forEach((el, i) => el.classList.toggle('on', i < n));
   paintWave();
   document.querySelectorAll('[data-groupcount]').forEach(c => {
     const i = Number(c.dataset.groupcount);
-    c.textContent = rs.filter(r => byId[r.id].gi === i).length + ' / ' + groups[i].exercises.length
+    c.textContent = rs.filter(r => byId[r.id].gi === i).length + ' / ' + exercisesAt(selected).filter(e => e.gi === i).length
   });
   document.querySelector('#week').innerHTML = week();
   document.querySelector('#balance').innerHTML = balanceCard();
@@ -92,14 +92,14 @@ function options(day, id) {
   const r = entries.get(key(day, id));
   showDialog(
       'Edit exercise',
-      '<p class="dialog-sub">' + byId[id].name + ' · ' + fmt(day, {day: 'numeric', month: 'short'}) +
+      '<p class="dialog-sub">' + esc(byId[id].name) + ' · ' + fmt(day, {day: 'numeric', month: 'short'}) +
           '</p>' +
           levels
               .map(
                   (l, i) => '<button class="choice ' + colours[i] + '" data-set="' + i + '">' +
                       icon(['close', 'check', 'heavy', 'trophy'][i]) + l +
                       ((r?.level || 0) === i ? '<small>Current</small>' : '') + '</button>')
-              .join(''),
+              .join('') + (byId[id].created ? '<button class="ghost wide" data-rename-exercise="'+id+'">Rename exercise</button>' : ''),
       {day, id})
 }
 function prForm(day, id) {
@@ -107,7 +107,7 @@ function prForm(day, id) {
   const last = prList([...entries.values()].filter(x => x.id === id && x.day < day), 1)[0];
   showDialog(
       old ? 'Edit personal record' : 'Log a personal record',
-      '<p class="dialog-sub">' + byId[id].name + ' · ' + fmt(day, {day: 'numeric', month: 'short'}) +
+      '<p class="dialog-sub">' + esc(byId[id].name) + ' · ' + fmt(day, {day: 'numeric', month: 'short'}) +
           '</p><form id="pr-form"><label class="field">What did you do?<input name="result" maxlength="140" required placeholder="e.g. 32.5 kg per arm" value="' +
           esc(old?.result) +
           '"></label><label class="field">Reps<input type="number" name="reps" inputmode="numeric" min="1" max="9999" step="1" required placeholder="e.g. 5" value="' +
@@ -123,7 +123,7 @@ function prForm(day, id) {
           '<div class="dialog-actions"><button class="ghost" type="button" data-action="close">Cancel</button><button class="primary" type="submit">Save PR</button></div></form>',
       {day, id}, '<span class="prmark">' + icon('trophy') + '</span>')
 }
-function setDay(day, target = view==='gymnastics' ? 'gymnastics' : 'workout') {
+function setDay(day, target = ['gymnastics','calories'].includes(view) ? view : 'workout') {
   if (!validDay(day) || day > today) return;
   selected = day;
   editing = false;
@@ -140,7 +140,7 @@ function selectView(v) {
   view = v;
   syncRoute();
   editing = false;
-  if (v === 'workout' || v === 'gymnastics') {
+  if (['workout','gymnastics','calories'].includes(v)) {
     selected = today;
     filter = -1
   }
@@ -163,26 +163,28 @@ function dateDialog() {
 function dataDialog() {
   showDialog(
       'Preferences &amp; backups',
-      preferenceControls()+'<p class="dialog-sub">Your workouts and gymnastics reps are saved in this browser. Export a backup to move them to another device. You can also import an earlier Formlog backup.</p><button class="choice" data-action="export">' +
+      preferenceControls()+'<p class="dialog-sub">Your journal is saved in this browser. Export a backup to move your logs to another device.</p><button class="choice" data-action="export">' +
           icon('download') + 'Export backup</button><button class="choice" data-action="import">' +
           icon('history') +
           'Import backup</button><input class="file-input" id="import-file" type="file" accept=".json,application/json"><p class="note">' +
-          entrySummary()+'</p>'+resetActions())
+          entrySummary()+'</p><button class="choice" data-action="cloud">Supabase backup</button>'+resetActions())
 }
-function exportFile() {
-  const data = JSON.stringify(
-      {
-        app: 'Bench Marx',
-        version: 2,
+function backupPayload() {
+  return {
+        app: appName,
+        version: 3,
+        daily: [...daily.values()],
         exportedAt: new Date().toISOString(),
         entries:
             [...entries.values()].sort((a, b) => a.day.localeCompare(b.day) || a.id.localeCompare(b.id))
-      },
-      null, 2);
+  };
+}
+function exportFile() {
+  const data = JSON.stringify(backupPayload(),null,2);
   const url = URL.createObjectURL(new Blob([data], {type: 'application/json'})),
         a = document.createElement('a');
   a.href = url;
-  a.download = 'Bench-Marx-' + today + '.json';
+  a.download = appName.replace(' ','-') + '-' + today + '.json';
   document.body.append(a);
   a.click();
   a.remove();
@@ -193,24 +195,36 @@ async function previewImport(file) {
   try {
     if (file.size > 25000000) throw Error('This backup is too large to import.');
     const data = JSON.parse(await file.text());
-    if (!['Bench Marx', 'Formlog'].includes(data.app) || ![1,2].includes(data.version) || !Array.isArray(data.entries))
-      throw Error('Choose a Bench Marx or Formlog JSON backup.');
+    const supported = data.app === appName || (!isDan && data.app === 'Formlog');
+    if (!supported || ![1,2,3].includes(data.version) || !Array.isArray(data.entries) ||
+        (data.version === 3 && !Array.isArray(data.daily)))
+      throw Error('Choose a '+appName+' JSON backup.');
+    const incomingDaily = new Map();
+    const catalogue = {...byId};
+    for (const item of data.daily || []) {
+      const record = cleanDaily(item);
+      if (!record || (record.day || record.created) > today || incomingDaily.has(dailyKey(record)))
+        throw Error('The backup contains an invalid or duplicate daily entry.');
+      incomingDaily.set(dailyKey(record),record);
+      if (record.type === 'exercise') catalogue[record.id] = record;
+    }
     const incoming = new Map();
     for (const item of data.entries) {
-      const r = cleanRecord(item);
+      const r = cleanRecord(item,catalogue);
       if (!r || r.day > today) throw Error('The backup contains an invalid workout entry.');
       const k = key(r.day, r.id);
       if (incoming.has(k)) throw Error('The backup contains duplicate entries.');
       incoming.set(k, r)
     }
     const fresh = [...incoming.entries()].filter(([k]) => !entries.has(k)).map(([, r]) => r);
-    pendingImport = fresh;
+    const freshDaily = [...incomingDaily.values()].filter(r => !daily.has(dailyKey(r)));
+    pendingImport = [...freshDaily,...fresh];
     showDialog(
         'Import backup',
-        '<p class="dialog-sub">' + fresh.length + ' new log entries can be added. ' +
-            (incoming.size - fresh.length) +
+        '<p class="dialog-sub">' + pendingImport.length + ' new log entries can be added. ' +
+            (incoming.size + incomingDaily.size - pendingImport.length) +
             ' existing entries will be kept as they are.</p><div class="dialog-actions"><button class="ghost" data-action="close">Cancel</button><button class="primary" data-action="merge" ' +
-            (!fresh.length ? 'disabled' : '') + '>Import logs</button></div>');
+            (!pendingImport.length ? 'disabled' : '') + '>Import logs</button></div>');
   } catch (err) {
     showDialog(
         'Import failed',
@@ -221,8 +235,12 @@ async function previewImport(file) {
   }
 }
 function help() {
+  if (view === 'calories') {
+    showDialog('Logging calories','<p class="dialog-sub">Enter the calories for the portion you ate. Tap a saved item to edit or remove it.</p><button class="primary wide" data-action="close">Got it</button>');
+    return;
+  }
   if(view==='insights'||view==='history'){
-    const message=view==='history'?'Choose a date to see both logs. Use Weekly chart to edit a workout across seven days.':'Pick Workout, Gymnastics or Patterns, then choose 7, 28 or 90 days. Each comparison uses the immediately preceding period of the same length.';
+    const message=isDan ? (view==='history'?'Choose a date to see its workout or calorie log.':'Choose Workout or Weight and a date range.') : view==='history'?'Choose a date to see both logs. Use Weekly chart to edit a workout across seven days.':'Pick Workout, Gymnastics or Patterns, then choose 7, 28 or 90 days. Each comparison uses the immediately preceding period of the same length.';
     showDialog(view==='history'?'Using history':'Reading insights','<p class="dialog-sub">'+message+'</p><button class="primary wide" data-action="close">Got it</button>');
     return;
   }
@@ -259,6 +277,11 @@ document.addEventListener('click', event => {
   const el = event.target.closest('button');
   if (!el || el.disabled) return;
   const d = el.dataset;
+  if (d.renameExercise) { addExerciseDialog(byId[d.renameExercise].gi,d.renameExercise); return; }
+  if (d.weigh) { weightDialog(d.weigh); return; }
+  if (d.addExercise !== undefined) { addExerciseDialog(Number(d.addExercise)); return; }
+  if (d.foodDay && isDan) { calorieDialog(d.foodDay, d.foodId); return; }
+  if (d.removeDaily) { removeDaily(d.removeDaily); return; }
   if(d.untick){if(entries.has(key(selected,d.untick)))change(selected,d.untick,null);return;}
   if(d.restore){restoreJournal(d.restore);return;}
   if(d.pref){changePreference(d.pref,el);return}
@@ -342,6 +365,10 @@ document.addEventListener('click', event => {
     return
   }
   switch (d.action) {
+    case 'cloud':cloudDialog();break;
+    case 'cloud-review':
+    case 'cloud-save':
+    case 'cloud-sign-out':runCloud(el);break;
     case 'review-reset':reviewReset();break;
     case 'confirm-reset':resetJournal();break;
     case 'restore-list':recoveryList();break;
@@ -377,8 +404,11 @@ document.addEventListener('click', event => {
     case 'merge': {
       const incoming = pendingImport || [];
       loadEntries();
-      for (const r of incoming)
-        if (!entries.has(key(r.day, r.id))) storeEntry(r.day, r.id, r);
+      for (const r of incoming) {
+        if (r.type && !daily.has(dailyKey(r))) writeJournal(dailyKey(r),r,daily);
+        if (!r.type && !entries.has(key(r.day,r.id))) storeEntry(r.day,r.id,r);
+      }
+      rebuildCatalogue();
       closeDialog();
       render();
       notify(storageIssue || 'Backup imported');
@@ -425,6 +455,8 @@ document.addEventListener('click', event => {
   }
 });
 document.addEventListener('submit', e => {
+  saveDailyForm(e);
+  if (e.target.id === 'cloud-form') {e.preventDefault();runCloud(()=>cloudSignIn(e.target));}
   if (e.target.id === 'pr-form') {
     e.preventDefault();
     const form = e.target, data = new FormData(form), {day, id} = modalInfo;
@@ -491,7 +523,7 @@ function syncRoute() {
     window.history.replaceState(null,'','#'+view);
 }
 function linkedView(){return window.location?.hash.slice(1) || 'workout';}
-function knownView(v){return ['workout','gymnastics','history','insights'].includes(v);}
+function knownView(v){return ['workout','history','insights',isDan?'calories':'gymnastics'].includes(v);}
 window.addEventListener('hashchange',()=>{const v=linkedView();if(knownView(v)&&v!==view)selectView(v);});
 scheduleMidnight();
 loadEntries();

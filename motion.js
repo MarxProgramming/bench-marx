@@ -1,5 +1,5 @@
 // Preferences are independent from the training journal and its backups.
-const preferenceKey = 'bench-marx.preferences.v1';
+const preferenceKey = isDan ? 'bench-dan.preferences.v1' : 'bench-marx.preferences.v1';
 const preferences = {motion:true, chimes:false};
 try {
   const saved = JSON.parse(localStorage.getItem(preferenceKey) || '{}');

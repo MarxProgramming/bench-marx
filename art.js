@@ -1,4 +1,6 @@
 const shapes = {
+  scale: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M7 11a5 5 0 0 1 10 0M12 11l2-3"/>',
+  food: '<path d="M4 3v6a3 3 0 0 0 6 0V3M7 3v18M17 21V3c-3 1-4 5-4 9h4"/>',
   settings: '<path d="M3 7h8m5 0h5M3 17h3m5 0h10"/><circle cx="13" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/>',
   grid:
       '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
@@ -28,10 +30,11 @@ function icon(k) {
   return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
       (shapes[k] || shapes.wave) + '</svg>'
 }
-function waveArt() {
+function waveArt(count) {
   let ribbons = '';
-  for (let i = exercises.length - 1; i >= 0; i--) {
-    const off = i * 4.8, x = 19 + off, y = 150 - i * 2.8;
+  const spread = 16 / Math.max(1, count - 1);
+  for (let i = count - 1; i >= 0; i--) {
+    const off = i * spread, x = 19 + off * 4.8, y = 150 - off * 2.8;
     const line = 'M ' + x + ' ' + y + ' c 34 0 42 -79 77 -78 s 50 76 88 59 s 43 -88 79 -96 s 43 21 66 17';
     const back = ' l 0 11 c -23 3 -30 -21 -66 -13 s -41 82 -79 98 s -53 -57 -88 -63 s -44 71 -77 74 Z';
     ribbons += '<g data-ridge="' + i + '"><path d="' + line + back +

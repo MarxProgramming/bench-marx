@@ -15,3 +15,13 @@ Entries are stored in the current browser. Use the settings button to export or 
 ## Hosting
 
 Serve this directory as a static website, or publish the root of the main branch using GitHub Pages. After the service worker has installed over HTTPS, both logs and their assets are available offline.
+
+## Bench Dan
+
+[Open Bench Dan](https://marxprogramming.github.io/bench-marx/dan.html)
+
+Bench Dan uses this repository with its own home screen, catalogue, backups and calorie journal. Both apps let you add custom exercises and log body weight. Bench Dan lets you enter calories for each food or drink and review the previous seven days.
+
+## Supabase connection
+
+Use a dedicated project. Run `supabase.sql` in its SQL Editor and provision a confirmed email and password for each person through Supabase Auth. In the app, open **Settings and backups** and select **Supabase backup**. Enter the project's HTTPS URL and publishable key to sign in. The app can save and merge private cloud backups on demand. PostgreSQL row-level security limits each account to its own rows. The two apps use separate journal rows, including when an account uses both. Automatic sync is not configured.

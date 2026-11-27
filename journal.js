@@ -1,5 +1,5 @@
 // Journal resets retain a verified snapshot of this app's entries on this device.
-const archivePrefix = 'bench-marx.reset.v1.';
+const archivePrefix = isDan ? 'bench-dan.reset.v1.' : 'bench-marx.reset.v1.';
 function storageKeys(startsWith) {
   return Array.from({length:localStorage.length},(_,i)=>localStorage.key(i))
     .filter(k=>k && k.startsWith(startsWith)).sort();
@@ -15,14 +15,14 @@ function resetActions() {
 function entrySummary() {
   const all=[...entries.values()], gym=all.filter(isGym).length, work=all.length-gym, days=tally(all);
   const count=(n,s)=>n+' '+s+(n===1?'':'s');
-  return count(work,'exercise log')+' · '+count(gym,'gymnastics rep')+' · '+count(days,'training day');
+  return count(work,'exercise log')+(isDan ? '' : ' · '+count(gym,'gymnastics rep'))+' · '+count(days,'training day');
 }
 function journalRevision() {
-  return JSON.stringify([...entries].sort(([a],[b])=>a.localeCompare(b)));
+  return JSON.stringify([...entries,...daily].sort(([a],[b])=>a.localeCompare(b)));
 }
 function reviewReset() {
   loadEntries();
-  showDialog('Start fresh?', '<p class="dialog-sub">Both logs, your PR book and insights will start at zero in this browser. You can restore this journal from Settings.</p><p class="reset-count">'+entrySummary()+
+  showDialog('Start fresh?', '<p class="dialog-sub">Your logs, custom exercises and insights will start fresh in this browser. You can restore this journal from Settings.</p><p class="reset-count">'+entrySummary()+
     '</p><div class="dialog-actions"><button class="ghost" data-initial data-action="data">Keep journal</button><button class="primary" data-action="confirm-reset">Reset training data</button></div>',{reviewingReset:true,revision:journalRevision()});
 }
 function resetJournal() {
