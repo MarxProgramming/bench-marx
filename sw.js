@@ -1,10 +1,10 @@
 // Install the whole release before it becomes eligible to serve offline.
 const root = self.registration.scope;
-const release = '4.5';
+const release = '4.6';
 const prefix = 'bench-marx:' + root + ':';
 const cacheName = prefix + release;
 const entry = new URL('index.html', root).href;
-const files = ['index.html','dan.html','daily.js','food-scan.js','swipe.js','food-photo-worker.js','cloud.js','dan.webmanifest','dan-icon-192.png','dan-icon-512.png','style.css','model.js','art.js','ui.js','gymnastics.js','analysis.js','motion.js','actions.js','journal.js','emblems.webp','rubik-regular.ttf','rubik-bold.ttf','manifest.webmanifest','touch-icon.png','icon-192.png','icon-512.png'];
+const files = ['index.html','dan.html','daily.js','food-scan.js','swipe.js','food-photo-worker.js','cloud.js','dan.webmanifest','dan-icon-192.png','dan-icon-512.png','style.css','model.js','art.js','ui.js','gymnastics.js','analysis.js','motion.js','actions.js','reminders.js','journal.js','emblems.webp','rubik-regular.ttf','rubik-bold.ttf','manifest.webmanifest','touch-icon.png','icon-192.png','icon-512.png'];
 const canonical = new Map(files.map(f => {
   const url=new URL(f,root).href;
   return [url,f.endsWith('.html') ? url : url+'?v='+release];

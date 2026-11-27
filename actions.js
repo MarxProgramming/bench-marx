@@ -39,6 +39,15 @@ function change(day, id, record) {
     notify('Change undone')
   })
 }
+function refreshAttention(reminders) {
+  const controls=document.querySelector('#attention-controls');
+  if (!controls) return;
+  const focused=document.activeElement?.dataset?.action;
+  controls.innerHTML=attentionControls(reminders);
+  if (['attention-filter','reminder-help'].includes(focused)) {
+    controls.querySelector('[data-action="'+focused+'"]')?.focus({preventScroll:true});
+  }
+}
 function refreshLog(day, id) {
   stopCounters();
   if(view==='gymnastics' && day===selected && byId[id].skill && !storageIssue){repaintGym(day,id);return}
@@ -46,10 +55,21 @@ function refreshLog(day, id) {
     render();
     return
   }
+  const reminders=remindersFor(selected);
+  refreshAttention(reminders);
+  if (attentionOnly) {
+    const focus=document.activeElement?.dataset?.log || document.activeElement?.dataset?.untick;
+    document.querySelector('#groups').innerHTML=groupList(reminders);
+    if (focus) {
+      const target=document.querySelector('[data-log="'+focus+'"]') ||
+        document.querySelector('.attention-filter');
+      target?.focus({preventScroll:true});
+    }
+  }
   const r = document.querySelector('[data-row="' + id + '"]');
   if (r) {
     const focused = r.contains(document.activeElement);
-    r.outerHTML = row(byId[id]);
+    r.outerHTML = row(byId[id],reminders.get(id) || null);
     const nr = document.querySelector('[data-row="' + id + '"]');
     nr.classList.add('pulse');
     if (focused) nr.querySelector('.log').focus({preventScroll: true})
@@ -92,10 +112,11 @@ modal.addEventListener('close', () => {
 });
 function options(day, id) {
   const r = entries.get(key(day, id));
+  const reminder=remindersFor(day).get(id);
   showDialog(
       'Edit exercise',
       '<p class="dialog-sub">' + esc(byId[id].name) + ' · ' + fmt(day, {day: 'numeric', month: 'short'}) +
-          '</p>' +
+          '</p>' +(reminder ? '<p class="note">'+esc(reminder.detail)+'</p>' : '')+
           levels
               .map(
                   (l, i) => '<button class="choice ' + colours[i] + '" data-set="' + i + '">' +
@@ -128,6 +149,7 @@ function prForm(day, id) {
 function setDay(day, target = ['gymnastics','calories'].includes(view) ? view : 'workout') {
   if (!validDay(day) || day > today) return;
   selected = day;
+  attentionOnly = false;
   editing = false;
   view = target;
   syncRoute();
@@ -140,6 +162,8 @@ function setDay(day, target = ['gymnastics','calories'].includes(view) ? view : 
 }
 function selectView(v) {
   view = v;
+  if(v==='insights')period=7;
+  attentionOnly=false;
   syncRoute();
   editing = false;
   if (['workout','gymnastics','calories'].includes(v)) {
@@ -276,6 +300,7 @@ function rollover() {
   if (today === now) return;
   const old = today;
   today = now;
+  attentionOnly=false;
   if (selected === old) selected = now;
   if (calDay === old) {
     calDay = now;
@@ -287,6 +312,7 @@ document.addEventListener('click', event => {
   const el = event.target.closest('button');
   if (!el || el.disabled) return;
   const d = el.dataset;
+  if (d.findExercise) {attentionFocus(d.findExercise);return;}
   if (d.dishScan) { scanPreparedDish(el); return; }
   if (d.scanPick) { document.querySelector('#scan-'+d.scanPick)?.click(); return; }
   if (d.scanUse !== undefined) { useScanChoice(Number(d.scanUse)); return; }
@@ -318,11 +344,12 @@ document.addEventListener('click', event => {
       options(selected, d.log);
       return
     }
-    const l = entries.get(key(selected, d.log))?.level || 0;
+    const day=selected;
+    const l = entries.get(key(day, d.log))?.level || 0;
     if (l >= 2)
       prForm(selected, d.log);
     else
-      change(selected, d.log, {day: selected, id: d.log, level: l + 1});
+      guardHeavy(day,d.log,l+1,()=>change(day,d.log,{day,id:d.log,level:l+1}));
     return
   }
   if(d.analysis){analysisMode=d.analysis;render(true);document.querySelector('[data-analysis="'+analysisMode+'"]')?.focus({preventScroll:true});return}
@@ -340,19 +367,22 @@ document.addEventListener('click', event => {
       prForm(day, id);
       return
     }
-    change(day, id, {day, id, level: l + 1});
-    document.querySelector('[data-cell="' + d.cell + '"]')?.focus({preventScroll: true});
+    guardHeavy(day,id,l+1,()=>{
+      change(day,id,{day,id,level:l+1});
+      document.querySelector('[data-cell="'+d.cell+'"]')?.focus({preventScroll:true});
+    });
     return
   }
 
   if (d.set !== undefined) {
     const {day, id} = modalInfo, l = Number(d.set);
-    if (l === 3) {
-      prForm(day, id);
-      return
-    }
-    closeDialog();
-    change(day, id, l ? {day, id, level: l} : null);
+    guardHeavy(day,id,l,()=>{
+      if(l===3)prForm(day,id);
+      else {
+        closeDialog();
+        change(day,id,l ? {day,id,level:l} : null);
+      }
+    });
     return
   }
   if (d.day) {
@@ -365,6 +395,8 @@ document.addEventListener('click', event => {
     return
   }
   if (d.filter !== undefined) {
+    attentionOnly=false;
+    refreshAttention(remindersFor(selected));
     filter = d.filter === '-1' ? -1 : groupRef(d.filter);
     document.querySelectorAll('[data-filter]')
         .forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === String(filter))));
@@ -386,6 +418,23 @@ document.addEventListener('click', event => {
   }
   switch (d.action) {
     case 'add-category':categoryDialog();break;
+    case 'attention-filter': {
+      attentionOnly=!attentionOnly;
+      filter=-1;
+      const reminders=remindersFor(selected);
+      document.querySelectorAll('[data-filter]').forEach(b=>
+        b.setAttribute('aria-pressed',String(!attentionOnly && b.dataset.filter==='-1')));
+      document.querySelector('#groups').innerHTML=groupList(reminders);
+      refreshAttention(reminders);
+      break
+    }
+    case 'reminder-help':attentionHelp();break;
+    case 'confirm-heavy': {
+      const {confirmHeavy:perform,keepOpen}=modalInfo || {};
+      if (!keepOpen) closeDialog();
+      if (perform) perform();
+      break
+    }
     case 'archived-exercises':archivedExercises();break;
     case 'cloud':cloudDialog();break;
     case 'cloud-review':

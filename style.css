@@ -1811,8 +1811,8 @@ button:focus-visible,summary:focus-visible,select:focus-visible{outline:2px soli
 @media(max-width:370px){.analysis-tabs button{font-size:.82rem}.weekcol{min-width:0}.gym-segs b{width:3px}.rep-strip{gap:5px}.legend{flex-wrap:wrap}}
 
 /* The display stack uses native condensed type where available; Rubik travels with the journal. */
-@font-face{font-family:Rubik;src:url("./rubik-regular.ttf?v=4.5") format("truetype");font-weight:400 550;font-style:normal;font-display:swap}
-@font-face{font-family:Rubik;src:url("./rubik-bold.ttf?v=4.5") format("truetype");font-weight:600 900;font-style:normal;font-display:swap}
+@font-face{font-family:Rubik;src:url("./rubik-regular.ttf?v=4.6") format("truetype");font-weight:400 550;font-style:normal;font-display:swap}
+@font-face{font-family:Rubik;src:url("./rubik-bold.ttf?v=4.6") format("truetype");font-weight:600 900;font-style:normal;font-display:swap}
 :root{
   --bg:#080f18;--panel:#102031;--panel2:#172b40;--line:#2c4359;--soft:#203447;--white:#eef6ff;--muted:#b2c3d4;--dim:#8ea5bb;
   --purple:#70c3ff;--violet:#81c8f5;--mint:#83d7ff;--aqua:#a6deff;--orange:#ffae6e;--green:#7de4b0;--red:#ff8b95;
@@ -1832,7 +1832,7 @@ h2{font-family:Rubik,sans-serif;font-weight:600;letter-spacing:-.035em}h3,.hero-
 .card,.weekly.card{background:linear-gradient(135deg,#1d3446e3 0%,#142637e8 40%,#101d2bea 100%);border:1px solid #82b4d033;box-shadow:0 16px 42px -11px #01050cd9,0 4px 13px #02081063,inset 0 1px #c6e9ff0b;backdrop-filter:blur(12px)}
 .hero.card,.hero.gym-hero.card{background:radial-gradient(ellipse at 99% 120%,#e9975227,transparent 49%),radial-gradient(ellipse at 81% 16%,#227fb944,transparent 60%),linear-gradient(123deg,#17374eec,#102a42ef 50%,#1b3952eb);border-color:#42719691}
 .hero:before{opacity:.15}.hero-label,.gym-hero .hero-label{color:#c4e7fb}.hero .pct,.gym-hero .pct{color:#c0dff2}
-.nav-emblem{display:inline-block;flex:0 0 auto;width:29px;height:29px;background:url("./emblems.webp?v=4.5") 0 50% / 400% 100% no-repeat;filter:saturate(.57) brightness(.90);opacity:.85}
+.nav-emblem{display:inline-block;flex:0 0 auto;width:29px;height:29px;background:url("./emblems.webp?v=4.6") 0 50% / 400% 100% no-repeat;filter:saturate(.57) brightness(.90);opacity:.85}
 .emblem-gymnastics{background-position-x:33.333333%}.emblem-insights{background-position-x:66.666667%}.emblem-history{background-position-x:100%}
 .nav-item{gap:8px;padding:7px 13px;color:#b5c8d8}.nav-item[aria-current=page]{background:linear-gradient(130deg,#21445d,#172f46);box-shadow:inset 0 0 0 1px #71b4e32f;color:#eaf7ff}
 .nav-item[aria-current=page] .nav-emblem{filter:saturate(.78) brightness(1.15);opacity:1}
@@ -2075,3 +2075,52 @@ html[data-journal=dan] {
 [data-journal=dan] :is(button,summary,input,select,textarea):focus-visible {outline-color:#c9d5ab}
 [data-journal=dan] #toast {background:#302527;border-color:#887066}
 [data-journal=dan] .scan-portion {color:#dfe9c9;border-color:#7d8f68}
+
+/* Keep the established layouts and give status colours the strongest accents. */
+:root {
+  --purple:#9cb5c7;
+  --green:#a3c5ad;
+  --orange:#dbb189;
+  --red:#d9a0a5;
+  --notice-due:#d3b68c;
+  --notice-heavy:#aebdca;
+  --notice-pause:#e5aeb1;
+}
+html:not([data-journal=dan]) body:before {
+  background:radial-gradient(ellipse at 65% -20%,#30414e72,transparent 64%),linear-gradient(150deg,#151e27,#10171e 70%);
+}
+html:not([data-journal=dan]) header {background:#19242ef7;border-color:#50616b74}
+html:not([data-journal=dan]) .card {background:linear-gradient(140deg,#222e38,#18232c 76%);border-color:#7d9aad40}
+html:not([data-journal=dan]) .hero.card {background:linear-gradient(130deg,#273847,#1d2c3a 75%);border-color:#7993a366}
+html:not([data-journal=dan]) .gym-hero.card {background:linear-gradient(130deg,#263c40,#20303b 75%)}
+html:not([data-journal=dan]) .nav-emblem {filter:saturate(.34) brightness(.93)}
+html:not([data-journal=dan]) .nav-item[aria-current=page] .nav-emblem {filter:saturate(.46) brightness(1.12)}
+html:not([data-journal=dan]) .segs b.on {background:#a5bdcd;box-shadow:none}
+html:not([data-journal=dan]) .primary {background:#b1c5d3;border-color:#bdcdd7;color:#1b2730}
+html[data-journal=dan] {--notice-due:#ddc193;--notice-heavy:#b9c2a7;--notice-pause:#e0adb1}
+[data-journal=dan] body:before {background:linear-gradient(145deg,#3b282f,#31262b 72%)}
+[data-journal=dan] :is(.nav-item[aria-current=page],.weekcol[aria-current=date],.cal-cell[aria-pressed=true]) {background:#343b30;border-color:#727b65}
+[data-journal=dan] .hero-label,[data-journal=dan] .hero .pct {color:#dfc9aa}
+[data-journal=dan] .segs b.on {background:#c4ad8c;box-shadow:none}
+[data-journal=dan] .primary {background:#b0b89d;border-color:#c0c8ae}
+[data-journal=dan] .wave {opacity:.62}
+
+.attention-controls {display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:8px}
+.attention-filter {min-height:37px;color:var(--notice-due)}
+.attention-filter span {font-variant-numeric:tabular-nums;color:inherit}
+.text-button {min-height:36px;padding:4px 0;color:var(--muted);font-size:.77rem;text-decoration:underline;text-underline-offset:3px}
+.row-reminder {display:block;width:fit-content;max-width:100%;margin-top:4px;color:var(--notice-due);font-size:.775rem;line-height:1.35;font-weight:500}
+.row-reminder.heavy-gap {color:var(--notice-heavy)}
+.row-reminder.pause {color:var(--notice-pause)}
+.exercise.has-reminder>.log {border-inline-start:2px solid var(--notice-due)}
+.exercise.reminder-heavy-gap>.log {border-color:var(--notice-heavy)}
+.exercise.reminder-pause>.log {border-color:var(--notice-pause);background:color-mix(in srgb,var(--notice-pause) 6%,transparent)}
+.attention-empty {padding:0 22px}
+.attention-overview {margin-bottom:18px}
+.attention-summary {max-height:225px;overflow:auto;margin-top:9px}
+.attention-summary-row {display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px 16px;padding:10px 0;min-height:44px;border-bottom:1px solid var(--line);text-align:left}
+.attention-summary-row:hover {background:var(--soft)}
+.attention-summary-row strong {font-size:.9rem;font-weight:500;min-width:0;overflow-wrap:anywhere}
+.attention-summary-row .row-reminder {margin-top:0;text-align:right;flex-shrink:0;max-width:46%}
+.reminder-rules {margin:12px 0 18px;padding-left:22px;color:var(--muted);line-height:1.5;font-size:.9rem}
+.reminder-rules li {margin-bottom:8px}

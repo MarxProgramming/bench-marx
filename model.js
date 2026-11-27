@@ -45,7 +45,7 @@ byId.pallof = {id:'pallof', name:'Pallof presses', retired:true};
 if (!isDan) byId.hip = {id:'hip', name:'Hip mobility', retired:true};
 const skills = isDan ? [] : [
   {id:'pirouette', name:'Handstand pirouette', family:'Handstands'},
-  {id:'shoulderstand', name:'Back shoulder handstand', family:'Handstands'},
+  {id:'shoulderstand', name:'Backwards roll to handstand', family:'Handstands'},
   {id:'standingtuck', name:'Standing back tuck', family:'Tumbling'},
   {id:'roundofftuck', name:'Round-off back tuck', family:'Tumbling'},
   {id:'pikestick', name:'Piked front somersault to stick', family:'Tumbling'},

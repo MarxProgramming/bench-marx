@@ -42,9 +42,12 @@ function waveArt(count) {
         '" fill="none" stroke="url(#edge)" stroke-width="1.65"/></g>'
   }
   const palette = isDan ? {
-    '#103855':'#573039','#2d94dd':'#9b6366','#205b92':'#783d4a','#62beef':'#d0a085','#20507f':'#6b3f42',
-    '#2976a2':'#8f5961','#a5e5ff':'#ebc493','#41a8ef':'#b58076','#c4ecff':'#f3d4aa','#6eacd3':'#b5837a'
-  } : {};
+    '#103855':'#4d363e','#2d94dd':'#86646a','#205b92':'#694d56','#62beef':'#ad8b7d','#20507f':'#604b4d',
+    '#2976a2':'#765b65','#a5e5ff':'#c9ad97','#41a8ef':'#997d74','#c4ecff':'#d5c2ad','#6eacd3':'#9b827e'
+  } : {
+    '#103855':'#273640','#2d94dd':'#527189','#205b92':'#3c566d','#62beef':'#7794aa','#20507f':'#3f5868',
+    '#2976a2':'#4a667c','#a5e5ff':'#9ab2c3','#41a8ef':'#618398','#c4ecff':'#aec4d1','#6eacd3':'#7792a3'
+  };
   const art = '<svg class="wave" viewBox="0 -24 430 217" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><linearGradient id="ribbon" x1=".08" y1="1" x2=".85" y2="0" gradientUnits="objectBoundingBox"><stop stop-color="#103855"/><stop offset=".28" stop-color="#2d94dd"/><stop offset=".51" stop-color="#205b92"/><stop offset=".77" stop-color="#62beef"/><stop offset="1" stop-color="#20507f"/></linearGradient><linearGradient id="edge"><stop stop-color="#2976a2"/><stop offset=".22" stop-color="#a5e5ff"/><stop offset=".48" stop-color="#41a8ef"/><stop offset=".75" stop-color="#c4ecff"/><stop offset="1" stop-color="#6eacd3"/></linearGradient></defs>' +
       ribbons + '</svg>';
   return art.replace(/stop-color="(#[0-9a-f]{6})"/g, (full, colour)=>palette[colour] ? 'stop-color="'+palette[colour]+'"' : full);

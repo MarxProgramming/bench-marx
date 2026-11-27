@@ -1,7 +1,7 @@
 const main = document.querySelector('#main'), modal = document.querySelector('#modal'),
       toast = document.querySelector('#toast');
 document.querySelectorAll('[data-icon]').forEach(i => i.innerHTML = icon(i.dataset.icon));
-let today = iso(), selected = today, view = 'workout', filter = -1, period = 28, month = today.slice(0, 7),
+let today = iso(), selected = today, view = 'workout', filter = -1, period = 7, month = today.slice(0, 7),
     calDay = today;
 let editing = false;
 let storageIssue = '', undo = null, toastTimer, modalInfo = null, returnFocus = null, pendingImport = null;
@@ -150,41 +150,43 @@ function balanceCard() {
   return '<div class="card-head"><h2>Session balance</h2>' + icon('layers') +
       '</div><p class="subline">Coverage by exercise group</p>' + balance(dayItems(selected),exercisesAt(selected))
 }
-function row(e) {
+function row(e,reminder=remindersFor(selected).get(e.id)) {
   const r = entries.get(key(selected, e.id)), l = r?.level || 0;
   const action = editing ? 'Edit exercise' :
       l === 3            ? 'Edit personal record' :
                            'Mark ' + ['Done', 'Heavy', 'PR'][l];
   const extra = l === 3 ? r.result + ' · ' + r.reps + ' ' + (r.reps === 1 ? 'rep' : 'reps') : e.detail;
   const indicator = editing ? 'edit' : ['plus', 'check', 'heavy', 'trophy'][l];
-  return '<div class="exercise ' + colours[l] + '" data-row="' + e.id + '" data-level="' + l +
+  return '<div class="exercise ' + colours[l] + (reminder ? ' has-reminder reminder-'+reminder.kind : '')+ '" data-row="' + e.id + '" data-level="' + l +
       '"><button class="log" data-log="' + e.id + '" aria-label="' +
-      esc(e.name + ', ' + levels[l] + '. ' + action) + '"><span class="exc-text"><span class="exname">' +
-      esc(e.name) + '</span>' + (extra ? '<span class="detail">' + esc(extra) + '</span>' : '') + '</span>' +
+      esc(e.name + ', ' + levels[l] + '. ' + action) + '"'+(reminder ? ' aria-describedby="reminder-'+e.id+'"' : '')+'><span class="exc-text"><span class="exname">' +
+      esc(e.name) + '</span>' + (extra ? '<span class="detail">' + esc(extra) + '</span>' : '') + reminderMarkup(e.id,reminder)+'</span>' +
       (l ? '<span class="status">' + levels[l] + '</span>' : '') + '<span class="plus">' + icon(indicator) +
       '</span></button>'+ (l?clearControl(e.id,e.name):'')+'</div>';
 }
 function clearControl(id,label){
   return '<button class="untick" data-untick="'+id+'" aria-label="Untick '+esc(label)+'">Untick</button>';
 }
-function groupList() {
+function groupList(reminders=remindersFor(selected)) {
   const available=groupsAt(selected);
   const visible=available.filter(group=>filter===-1 || group.ref===filter);
-  return (visible.length ? visible : available).map(g => {
+  return (attentionOnly ? available : visible.length ? visible : available).map(g => {
     const i=g.ref;
     const es=exercisesAt(selected).filter(e => e.gi===i);
     const n=es.filter(e=>entries.has(key(selected,e.id))).length;
+    const shown=attentionOnly ? es.filter(exercise=>reminders.has(exercise.id)) : es;
+    if(attentionOnly && !shown.length) return '';
     return '<section class="ex-group"><div class="group-label" style="--group-colour:'+g.colour+
       '"><h3>'+esc(g.name)+'</h3><span data-groupcount="'+i+'" class="count">'+n+' / '+es.length+'</span>'+
       '<button class="category-edit" data-edit-category="'+i+'" aria-label="Rename '+esc(g.name)+'">'+icon('edit')+'<span>Rename</span></button>'+
-      '</div>'+es.map(row).join('')+'<button class="add-exercise" data-add-exercise="'+i+'" aria-label="Add exercise to '+
+      '</div>'+shown.map(exercise=>row(exercise,reminders.get(exercise.id) || null)).join('')+'<button class="add-exercise" data-add-exercise="'+i+'" aria-label="Add exercise to '+
       esc(g.name)+'">'+icon('plus')+' Add exercise</button></section>';
-  }).join('')+'<div class="add-category-line"><button class="add-exercise" data-action="add-category">'+icon('plus')+
+  }).join('')+(attentionOnly && !reminders.size ? '<p class="empty-copy attention-empty">No exercises need attention today.</p>' : '')+'<div class="add-category-line"><button class="add-exercise" data-action="add-category">'+icon('plus')+
     ' Add category</button></div>';
 }
 function filterBtns() {
   return [[-1,'All'],...groupsAt(selected).map(g=>[g.ref,g.short])].map(([ref,label])=>
-    '<button class="chip" data-filter="'+ref+'" aria-pressed="'+(filter===ref)+'">'+esc(label)+'</button>').join('');
+    '<button class="chip" data-filter="'+ref+'" aria-pressed="'+(!attentionOnly && filter===ref)+'">'+esc(label)+'</button>').join('');
 }
 function prList(records, limit = Infinity) {
   return records.filter(r => r.level === 3)
@@ -212,6 +214,7 @@ function footer() {
       '</span><button data-action="data">Settings &amp; backups</button></div>'
 }
 function workout() {
+  const reminders=remindersFor(selected);
   const sub = fmt(selected, {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
   return head('Workout log', sub, controls()) + '<div class="work-grid">' + hero() +
       '<section class="card weekly" id="week">' + week() +
@@ -221,7 +224,7 @@ function workout() {
       ' aria-label="Tap an exercise to change its level"><span class="done"><i class="dot"></i>1 tap · Done</span><span class="heavy"><i class="dot"></i>2 taps · Heavy</span><span class="pr"><i class="dot"></i>3 taps · PR</span></div>' +
       (editing ? '<p class="subline">Choose an exercise to change or clear its entry.</p>' : '') +
       '<div class="filters" aria-label="Filter by group">' + filterBtns() +
-      '</div></div><div id="groups">' + groupList() +
+      '</div><div id="attention-controls">'+attentionControls(reminders)+'</div></div><div id="groups">' + groupList(reminders) +
       '</div></section><aside class="side"><section class="card balance" id="balance">' + balanceCard() +
       '</section><section class="card latest" id="recent">' + recent() + '</section></aside></div>'
 }

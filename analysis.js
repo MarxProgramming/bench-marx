@@ -31,13 +31,26 @@ function mixCard(rs){
     '<div class="mix-track">'+counts.map((n,i)=>'<i class="'+colours[i+1]+'" style="width:'+percentage(n,total)+'%"></i>').join('')+'</div>'+
     counts.map((n,i)=>shortLine('<i class="dot '+colours[i+1]+'"></i> '+levels[i+1],n+' · '+percentage(n,total)+'%')).join(''));
 }
+function workloadCard(records) {
+  const days = new Map();
+  for (const record of records) {
+    if (!days.has(record.day)) days.set(record.day,false);
+    if (isHeavy(record)) days.set(record.day,true);
+  }
+  const heavyDays=[...days].filter(([,heavy])=>heavy).map(([day])=>day).sort();
+  return panel('Training intensity','Heavy and PR marks count as heavy work in this period.',
+    shortLine('Days with heavy work',heavyDays.length)+
+    shortLine('Days with Done marks only',days.size-heavyDays.length)+
+    shortLine('Latest heavy day',heavyDays.length ? dateLabel(heavyDays.at(-1)) : '—'));
+}
 function movementDetail(rs) {
   const list=rs.filter(r=>r.id===selectedExercise).sort((a,b)=>b.day.localeCompare(a.day));
-  const prs=prList(list);
+  const prs=prList(list), lastHeavy=list.find(isHeavy);
   return panel('Exercise detail','Frequency, last session and latest recorded result in this period.',
     chooseItem('exercise-detail','Exercise',exercises,selectedExercise)+
     shortLine('Training days logged',list.length+' / '+tally(rs))+
     shortLine('Last logged',list[0]?dateLabel(list[0].day)+' · '+levels[list[0].level]:'—')+
+    shortLine('Last heavy in this period',lastHeavy?dateLabel(lastHeavy.day):'—')+
     shortLine('Latest PR',prs[0]?esc(prs[0].result)+' × '+prs[0].reps:'—'));
 }
 function skillDetail(rs){
@@ -138,7 +151,7 @@ function insights() {
   else if(analysisMode==='patterns')body=patternInsights(all);
   else{
     const rs=all.filter(activeWorkout);
-    body=workoutInsights()+'<div class="two-col insight-grid analysis-extra">'+mixCard(rs)+movementDetail(rs)+compareCard(rs,previous.filter(activeWorkout),false)+'</div>';
+    body=workoutInsights()+'<div class="two-col insight-grid analysis-extra">'+mixCard(rs)+workloadCard(rs)+movementDetail(rs)+compareCard(rs,previous.filter(activeWorkout),false)+'</div>';
   }
-  return head('Insights','Your training over the last '+period+' days.',periodChooser())+tabs+body;
+  return head('Insights','Your training over the last '+period+' days.',periodChooser())+tabs+(analysisMode==='workout' ? attentionOverview() : '')+body;
 }

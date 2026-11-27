@@ -1,6 +1,6 @@
 // Preferences are independent from the training journal and its backups.
 const preferenceKey = isDan ? 'bench-dan.preferences.v1' : 'bench-marx.preferences.v1';
-const preferences = {motion:true, chimes:false};
+const preferences = {motion:true, chimes:false, reminders:true};
 try {
   const saved = JSON.parse(localStorage.getItem(preferenceKey) || '{}');
   for (const name of Object.keys(preferences)) {
@@ -13,7 +13,7 @@ function applyMotion() { document.body.dataset.motion = motionAllowed() ? 'on' :
 applyMotion();
 reduceQuery?.addEventListener?.('change', () => {applyMotion();stopCounters();});
 function preferenceControls() {
-  return '<div class="preferences">'+[['motion','Screen animations'],['chimes','Progress chimes']].map(([name,label])=>
+  return '<div class="preferences">'+[['motion','Screen animations'],['chimes','Progress chimes'],['reminders','Training reminders']].map(([name,label])=>
     '<button type="button" role="switch" aria-checked="'+preferences[name]+'" data-pref="'+name+'"><span>'+label+'</span><i aria-hidden="true"></i></button>').join('')+'</div>';
 }
 let chimeContext;
@@ -45,6 +45,7 @@ function changePreference(name, button) {
   applyMotion();
   if(!motionAllowed())stopCounters();
   button.setAttribute('aria-checked',String(preferences[name]));
+  if(name==='reminders') {attentionOnly=false;render();}
   if(name==='chimes' && preferences.chimes)playNotes([495,660]);
   if(!persisted)notify('Preference applied for this visit.');
 }
