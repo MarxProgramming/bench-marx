@@ -41,6 +41,11 @@ function waveArt(count) {
         '" fill="url(#ribbon)" stroke="#0b2e52" stroke-width=".8"/><path class="crest" d="' + line +
         '" fill="none" stroke="url(#edge)" stroke-width="1.65"/></g>'
   }
-  return '<svg class="wave" viewBox="0 -24 430 217" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><linearGradient id="ribbon" x1=".08" y1="1" x2=".85" y2="0" gradientUnits="objectBoundingBox"><stop stop-color="#103855"/><stop offset=".28" stop-color="#2d94dd"/><stop offset=".51" stop-color="#205b92"/><stop offset=".77" stop-color="#62beef"/><stop offset="1" stop-color="#20507f"/></linearGradient><linearGradient id="edge"><stop stop-color="#2976a2"/><stop offset=".22" stop-color="#a5e5ff"/><stop offset=".48" stop-color="#41a8ef"/><stop offset=".75" stop-color="#c4ecff"/><stop offset="1" stop-color="#6eacd3"/></linearGradient></defs>' +
-      ribbons + '</svg>'
+  const palette = isDan ? {
+    '#103855':'#573039','#2d94dd':'#9b6366','#205b92':'#783d4a','#62beef':'#d0a085','#20507f':'#6b3f42',
+    '#2976a2':'#8f5961','#a5e5ff':'#ebc493','#41a8ef':'#b58076','#c4ecff':'#f3d4aa','#6eacd3':'#b5837a'
+  } : {};
+  const art = '<svg class="wave" viewBox="0 -24 430 217" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><linearGradient id="ribbon" x1=".08" y1="1" x2=".85" y2="0" gradientUnits="objectBoundingBox"><stop stop-color="#103855"/><stop offset=".28" stop-color="#2d94dd"/><stop offset=".51" stop-color="#205b92"/><stop offset=".77" stop-color="#62beef"/><stop offset="1" stop-color="#20507f"/></linearGradient><linearGradient id="edge"><stop stop-color="#2976a2"/><stop offset=".22" stop-color="#a5e5ff"/><stop offset=".48" stop-color="#41a8ef"/><stop offset=".75" stop-color="#c4ecff"/><stop offset="1" stop-color="#6eacd3"/></linearGradient></defs>' +
+      ribbons + '</svg>';
+  return art.replace(/stop-color="(#[0-9a-f]{6})"/g, (full, colour)=>palette[colour] ? 'stop-color="'+palette[colour]+'"' : full);
 }

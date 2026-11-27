@@ -6,7 +6,7 @@ function foodScanControls() {
     const input = (kind, capture) => '<input type="file" accept="image/*" hidden id="scan-'+kind+'-'+mode+
       '" data-scan-input="'+mode+'" '+(capture?'capture="environment"':'')+'>';
     return '<div class="scan-choice"><strong>'+label+'</strong><div>'+
-      '<button class="ghost" type="button" data-scan-pick="camera-'+mode+'">Take photo</button>'+
+      '<button class="ghost" type="button" '+(mode==='meal'?'data-initial ':'')+'data-scan-pick="camera-'+mode+'">Take photo</button>'+
       '<button class="scan-file" type="button" data-scan-pick="file-'+mode+'">Choose photo</button>'+input('camera',true)+
       input('file',false)+'</div></div>';
   }).join('');
@@ -54,7 +54,7 @@ async function runReceiptScan(image, task) {
 }
 
 function runMealScan(image, task) {
-  const worker = foodWorker ||= new Worker('./food-photo-worker.js?v=4.2',{type:'module'});
+  const worker = foodWorker ||= new Worker('./food-photo-worker.js?v=4.3',{type:'module'});
   task.cancel = () => {
     worker.terminate();
     foodWorker = null;
@@ -152,10 +152,11 @@ async function scanFood(input) {
   const form = input.form;
   if (!form) return;
   input.value = '';
+  const prefilledKcal = scanTask?.form===form ? scanTask.prefilledKcal : undefined;
   stopFoodScan();
   const review = form.querySelector('#scan-review');
   review.hidden = false;
-  const task = {form,status:review.querySelector('.scan-status'),results:review.querySelector('.scan-results'), choices:[]};
+  const task = {form,status:review.querySelector('.scan-status'),results:review.querySelector('.scan-results'), choices:[], prefilledKcal};
   scanTask = task;
   task.results.replaceChildren();
   if ((file.type && !file.type.startsWith('image/')) || file.size > 25*1024*1024) {

@@ -1811,8 +1811,8 @@ button:focus-visible,summary:focus-visible,select:focus-visible{outline:2px soli
 @media(max-width:370px){.analysis-tabs button{font-size:.82rem}.weekcol{min-width:0}.gym-segs b{width:3px}.rep-strip{gap:5px}.legend{flex-wrap:wrap}}
 
 /* The display stack uses native condensed type where available; Rubik travels with the journal. */
-@font-face{font-family:Rubik;src:url("./rubik-regular.ttf?v=4.2") format("truetype");font-weight:400 550;font-style:normal;font-display:swap}
-@font-face{font-family:Rubik;src:url("./rubik-bold.ttf?v=4.2") format("truetype");font-weight:600 900;font-style:normal;font-display:swap}
+@font-face{font-family:Rubik;src:url("./rubik-regular.ttf?v=4.3") format("truetype");font-weight:400 550;font-style:normal;font-display:swap}
+@font-face{font-family:Rubik;src:url("./rubik-bold.ttf?v=4.3") format("truetype");font-weight:600 900;font-style:normal;font-display:swap}
 :root{
   --bg:#080f18;--panel:#102031;--panel2:#172b40;--line:#2c4359;--soft:#203447;--white:#eef6ff;--muted:#b2c3d4;--dim:#8ea5bb;
   --purple:#70c3ff;--violet:#81c8f5;--mint:#83d7ff;--aqua:#a6deff;--orange:#ffae6e;--green:#7de4b0;--red:#ff8b95;
@@ -1832,7 +1832,7 @@ h2{font-family:Rubik,sans-serif;font-weight:600;letter-spacing:-.035em}h3,.hero-
 .card,.weekly.card{background:linear-gradient(135deg,#1d3446e3 0%,#142637e8 40%,#101d2bea 100%);border:1px solid #82b4d033;box-shadow:0 16px 42px -11px #01050cd9,0 4px 13px #02081063,inset 0 1px #c6e9ff0b;backdrop-filter:blur(12px)}
 .hero.card,.hero.gym-hero.card{background:radial-gradient(ellipse at 99% 120%,#e9975227,transparent 49%),radial-gradient(ellipse at 81% 16%,#227fb944,transparent 60%),linear-gradient(123deg,#17374eec,#102a42ef 50%,#1b3952eb);border-color:#42719691}
 .hero:before{opacity:.15}.hero-label,.gym-hero .hero-label{color:#c4e7fb}.hero .pct,.gym-hero .pct{color:#c0dff2}
-.nav-emblem{display:inline-block;flex:0 0 auto;width:29px;height:29px;background:url("./emblems.webp?v=4.2") 0 50% / 400% 100% no-repeat;filter:saturate(.57) brightness(.90);opacity:.85}
+.nav-emblem{display:inline-block;flex:0 0 auto;width:29px;height:29px;background:url("./emblems.webp?v=4.3") 0 50% / 400% 100% no-repeat;filter:saturate(.57) brightness(.90);opacity:.85}
 .emblem-gymnastics{background-position-x:33.333333%}.emblem-insights{background-position-x:66.666667%}.emblem-history{background-position-x:100%}
 .nav-item{gap:8px;padding:7px 13px;color:#b5c8d8}.nav-item[aria-current=page]{background:linear-gradient(130deg,#21445d,#172f46);box-shadow:inset 0 0 0 1px #71b4e32f;color:#eaf7ff}
 .nav-item[aria-current=page] .nav-emblem{filter:saturate(.78) brightness(1.15);opacity:1}
@@ -1934,3 +1934,121 @@ dialog{background:linear-gradient(140deg,#1a3041,#101e2c);border-color:#496177;b
 .exercise.swiping {isolation:isolate; overflow:hidden; background:#842f42}
 .exercise.swiping:before {content:"Remove"; position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#ffe7ed; z-index:-1; font-size:.76rem}
 .exercise.swiping > * {transform:translateX(var(--swipe-x)); position:relative; background:#172c3d}
+
+/* Bench Dan */
+html[data-journal=dan] {
+  --bg:#1c1115;
+  --panel:#30171f;
+  --panel2:#3d2029;
+  --line:#64434a;
+  --soft:#4c3038;
+  --white:#f5e9d7;
+  --muted:#dbc4b7;
+  --dim:#c0a69e;
+  --purple:#ebc58c;
+  --mint:#a8cfab;
+  --orange:#efaf7a;
+  --green:#a9d0ae;
+  --red:#f198a1;
+  --display:"Baskerville","Iowan Old Style",Palatino,Georgia,serif;
+}
+[data-journal=dan] body:before {
+  background:radial-gradient(ellipse at 12% -8%,#622a3a88,transparent 56%),
+    radial-gradient(ellipse at 102% 100%,#5c312338,transparent 49%),
+    linear-gradient(145deg,#311922,#1c1216 63%);
+}
+[data-journal=dan] body:after {
+  background:repeating-linear-gradient(90deg,transparent 0 63px,#e8c9a308 63px 64px,transparent 64px 96px);
+}
+[data-journal=dan] header {
+  background:linear-gradient(95deg,#27151cf7,#3d212bfa);
+  border-color:#b790674f;
+}
+[data-journal=dan] .brand {
+  font-size:1.52rem;
+  text-transform:none;
+  font-weight:600;
+  letter-spacing:.015em;
+  white-space:nowrap;
+}
+[data-journal=dan] .brand em {color:#e8c78f;font-style:italic;font-weight:inherit}
+[data-journal=dan] h1 {
+  text-transform:none;
+  font-weight:400;
+  font-size:clamp(2.9rem,5.2vw,4.7rem);
+  letter-spacing:-.055em;
+  line-height:1;
+}
+[data-journal=dan] h2 {font:600 1.45rem/1.14 var(--display);letter-spacing:-.025em}
+[data-journal=dan] .page-title p {color:#d6bcb1}
+[data-journal=dan] .nav-item {color:#e0cbbd}
+[data-journal=dan] .nav-item[aria-current=page] {
+  background:linear-gradient(140deg,#5e3741,#472833);
+  box-shadow:inset 0 0 0 1px #c69d6959;
+  color:#fff3da;
+}
+[data-journal=dan] .nav-emblem,
+[data-journal=dan] .nav-item[aria-current=page] .nav-emblem {
+  filter:grayscale(1) sepia(.72) brightness(1.18);
+  opacity:.9;
+}
+[data-journal=dan] .nav-item i[data-icon] {color:#ddb782}
+[data-journal=dan] .card {
+  background:linear-gradient(143deg,#452732ed,#331d26f6 51%,#2b1921f8);
+  border-color:#95696b70;
+  box-shadow:inset 0 1px #f3d2a814,0 18px 40px -14px #0c080ae8,0 3px 10px #11080b63;
+}
+[data-journal=dan] .hero.card {
+  background:radial-gradient(ellipse at 97% 95%,#a36d414f,transparent 60%),
+    linear-gradient(115deg,#512b37,#42242f 65%,#4b2e33);
+  border-color:#c29a6a87;
+}
+[data-journal=dan] .hero:before {background-image:radial-gradient(#ebc994 1px,transparent 1px);opacity:.11}
+[data-journal=dan] .hero-label,[data-journal=dan] .hero .pct {color:#f1d5a6}
+[data-journal=dan] .hero .stat {font-size:clamp(3.6rem,5.5vw,5rem);font-weight:400;line-height:.9}
+[data-journal=dan] .hero .stat small,[data-journal=dan] .hero .descriptor {color:#e3cbb9}
+[data-journal=dan] .segs b {background:#7e5960}
+[data-journal=dan] .segs b.on {background:#f0c989;box-shadow:0 0 6px #e8b66c50}
+[data-journal=dan] :is(.avatar,.date-controls,.periods,.analysis-tabs) {background:#311e26;border-color:#79555a;color:#ead3bd}
+[data-journal=dan] :is(.date-button:hover,.round:hover,.nav-item:hover) {background:#59343e}
+[data-journal=dan] :is(.periods button,.analysis-tabs button,.chip)[aria-pressed=true] {
+  background:linear-gradient(140deg,#66434a,#4f303c);
+  border-color:#a77d72;
+  color:#ffeed4;
+}
+[data-journal=dan] .group-label {background:linear-gradient(100deg,#56333e,#472c36);border-color:#6e4a52;color:#f2dac6}
+[data-journal=dan] .group-label h3:before {background:#d4ac79}
+[data-journal=dan] :is(.category-edit,.add-exercise,.scan-file,.weight-table summary,.untick) {color:#f0cca0}
+[data-journal=dan] .category-edit:hover {background:#76515b}
+[data-journal=dan] :is(.exercise,.skill-row) {border-color:#704b525f}
+[data-journal=dan] .exercise .log:hover {background:#69465555}
+[data-journal=dan] .plus {border-color:#7e5b5e;color:#ecd0b8}
+[data-journal=dan] .exercise:not([data-level="0"]) .plus {color:var(--accent)}
+[data-journal=dan] .bartrack {background:#64434c}
+[data-journal=dan] .bartrack em {background:linear-gradient(90deg,#ac7a5d,#e1bd84)}
+[data-journal=dan] .primary {background:#e5bd84;border-color:#efcf9f;color:#2e1920}
+[data-journal=dan] .primary:hover {background:#f3d4a7}
+[data-journal=dan] :is(.ghost,.choice,.scan-choice,.field input,.field textarea,.picker select) {
+  background:#33202a;border-color:#79565c;color:#f7e7d3;
+}
+[data-journal=dan] :is(.choice:hover,.ghost:hover) {background:#583744}
+[data-journal=dan] dialog {background:linear-gradient(145deg,#422932,#2b1922);border-color:#a17867;box-shadow:0 26px 75px #14080de8}
+[data-journal=dan] .weigh-due {background:#812f42;border-color:#cf7884}
+[data-journal=dan] .weighed {background:#3f4b39;border-color:#98b28d;color:#ecf5d6}
+[data-journal=dan] :is(.scan-status,.scan-text) {color:#e2caba}
+[data-journal=dan] .scan-result {background:#533441;color:#f9e8d5}
+[data-journal=dan] .scan-result strong {color:#e9cc9c}
+[data-journal=dan] .food-row:hover {background:#edc48d10}
+[data-journal=dan] .calorie-bar i {background:linear-gradient(90deg,#a26962,#dfbd85)}
+[data-journal=dan] .weight-chart polyline {stroke:#edca94}
+[data-journal=dan] .weight-chart circle {fill:#f6dcad;stroke:#754e4c}
+[data-journal=dan] .exercise.swiping > * {background:#492936}
+[data-journal=dan] .exercise.swiping {background:#7b3a49}
+[data-journal=dan] .matrix :is(th[scope=row],thead th:first-child) {background-color:#39232d}
+[data-journal=dan] .wave [data-ridge]>path:first-child {stroke:#3b2029}
+
+@media(max-width:720px) {
+  [data-journal=dan] nav {background:linear-gradient(180deg,#3a2330fa,#251820fc);border-color:#976e645c}
+  [data-journal=dan] .brand {font-size:1.35rem}
+  [data-journal=dan] .nav-item i[data-icon] {display:grid;height:25px;place-items:center}
+}
