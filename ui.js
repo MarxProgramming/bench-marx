@@ -305,7 +305,7 @@ function chartWeek() {
                                       levels[l];
                                   return '<td><button class="cell ' + colours[l] + '" data-cell="' +
                                       key(d, e.id) + '" aria-label="' + esc(title) + '" title="' +
-                                      esc(title) + '" ' + (d > today || (chartUntick && !l) || (e.created && d < e.created && !l) ? 'disabled' : '') + '>' +
+                                      esc(title) + '" ' + (d > today || (chartUntick && !l) || ((e.created && d < e.created || e.archived && d >= e.archived) && !l) ? 'disabled' : '') + '>' +
                                       icon(['plus', 'check', 'heavy', 'trophy'][l]) + '</button></td>';
                                 }).join('') +
                               '</tr>')
@@ -371,7 +371,8 @@ function gaps(records) {
   if (!n)
     return '<p class="empty-copy">After your first training day, this shows which exercises you left out. Today is still in progress.</p>';
   const days = [...new Set(rs.map(r=>r.day))];
-  const rankedList = ranked(rs).map(e => ({...e, eligible:e.created ? days.filter(d => d >= e.created).length : n}))
+  const rankedList = ranked(rs).map(e => ({...e, eligible:days.filter(d =>
+    (!e.created || d >= e.created) && (!e.archived || d < e.archived)).length}))
     .filter(x => x.n < x.eligible).sort((a,b) => (b.eligible-b.n)-(a.eligible-a.n));
   if (!rankedList.length)
     return '<p class="empty-copy">You covered every exercise in every logged session in this period.</p>';

@@ -99,7 +99,7 @@ function options(day, id) {
                   (l, i) => '<button class="choice ' + colours[i] + '" data-set="' + i + '">' +
                       icon(['close', 'check', 'heavy', 'trophy'][i]) + l +
                       ((r?.level || 0) === i ? '<small>Current</small>' : '') + '</button>')
-              .join('') + (byId[id].created ? '<button class="ghost wide" data-rename-exercise="'+id+'">Rename exercise</button>' : ''),
+              .join('') + (byId[id].created ? '<button class="ghost wide" data-rename-exercise="'+id+'">Rename exercise</button><button class="ghost wide" data-archive-exercise="'+id+'">Archive exercise</button>' : ''),
       {day, id})
 }
 function prForm(day, id) {
@@ -167,7 +167,8 @@ function dataDialog() {
           icon('download') + 'Export backup</button><button class="choice" data-action="import">' +
           icon('history') +
           'Import backup</button><input class="file-input" id="import-file" type="file" accept=".json,application/json"><p class="note">' +
-          entrySummary()+'</p><button class="choice" data-action="cloud">Supabase backup</button>'+resetActions())
+          entrySummary()+'</p><button class="choice" data-action="cloud">Supabase backup</button>'+
+          (exercises.some(e=>e.archived) ? '<button class="choice" data-action="archived-exercises">Archived exercises</button>' : '')+resetActions())
 }
 function backupPayload() {
   return {
@@ -277,10 +278,12 @@ document.addEventListener('click', event => {
   const el = event.target.closest('button');
   if (!el || el.disabled) return;
   const d = el.dataset;
+  if (d.archiveExercise) { setExerciseArchived(d.archiveExercise,true); return; }
+  if (d.restoreExercise) { setExerciseArchived(d.restoreExercise,false); return; }
   if (d.renameExercise) { addExerciseDialog(byId[d.renameExercise].gi,d.renameExercise); return; }
   if (d.weigh) { weightDialog(d.weigh); return; }
   if (d.addExercise !== undefined) { addExerciseDialog(Number(d.addExercise)); return; }
-  if (d.foodDay && isDan) { calorieDialog(d.foodDay, d.foodId); return; }
+  if (d.foodDay && isDan) { calorieDialog(d.foodDay, d.foodId,d.copyFood); return; }
   if (d.removeDaily) { removeDaily(d.removeDaily); return; }
   if(d.untick){if(entries.has(key(selected,d.untick)))change(selected,d.untick,null);return;}
   if(d.restore){restoreJournal(d.restore);return;}
@@ -365,6 +368,7 @@ document.addEventListener('click', event => {
     return
   }
   switch (d.action) {
+    case 'archived-exercises':archivedExercises();break;
     case 'cloud':cloudDialog();break;
     case 'cloud-review':
     case 'cloud-save':

@@ -62,8 +62,8 @@ for (const skill of skills) {
   }
 }
 function isGym(r){ return !!byId[r.id]?.skill }
-function activeWorkout(r){ return !isGym(r) && !byId[r.id].retired }
-function archivedDay(day){ return [...entries.values()].filter(r=>r.day===day && byId[r.id].retired) }
+function activeWorkout(r){ return !isGym(r) && !byId[r.id].retired && (!byId[r.id].archived || r.day < byId[r.id].archived) }
+function archivedDay(day){ return [...entries.values()].filter(r=>r.day===day && (byId[r.id].retired || (byId[r.id].archived && r.day >= byId[r.id].archived))) }
 const levels = ['Unlogged', 'Done', 'Heavy', 'PR'], colours = ['neutral', 'done', 'heavy', 'pr'];
 const entries = new Map();
 const prefix = isDan ? 'bench-dan.v1.entry.' : 'formlog.v1.entry.';
@@ -112,10 +112,10 @@ function cleanRecord(r, catalogue = byId) {
   return out;
 }
 function exercisesAt(day) {
-  return exercises.filter(e => !e.created || e.created <= day);
+  return exercises.filter(e => (!e.created || e.created <= day) && (!e.archived || e.archived > day));
 }
 function dayItems(day) {
-  return exercises.map(e => entries.get(key(day, e.id))).filter(Boolean)
+  return exercisesAt(day).map(e => entries.get(key(day, e.id))).filter(Boolean)
 }
 function windowItems(end, days) {
   const start = offset(end, 1 - days);

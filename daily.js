@@ -8,7 +8,8 @@ function cleanDaily(item) {
     const name = typeof item.name === 'string' ? item.name.trim() : '';
     return customPattern.test(item.id) && Number.isInteger(item.group) && groups[item.group] &&
       name && name.length <= 80 && validDay(item.created)
-      ? {type:'exercise', id:item.id, name, group:item.group, created:item.created} : null;
+      ? {type:'exercise', id:item.id, name, group:item.group, created:item.created,
+         ...(validDay(item.archived) && item.archived >= item.created ? {archived:item.archived} : {})} : null;
   }
   if (!validDay(item.day)) return null;
   if (item.type === 'weight' && item.id === 'weight' && Number.isFinite(item.kg) &&
@@ -31,7 +32,7 @@ function rebuildCatalogue() {
   for (const exercise of exercises.splice(baseExerciseCount)) delete byId[exercise.id];
   for (const item of daily.values()) {
     if (item.type !== 'exercise') continue;
-    const exercise = {id:item.id, name:item.name, gi:item.group, created:item.created};
+    const exercise = {id:item.id, name:item.name, gi:item.group, created:item.created, archived:item.archived};
     exercises.push(exercise);
     byId[item.id] = exercise;
   }
@@ -71,14 +72,23 @@ function foodOn(day) {
   return [...daily.values()].filter(item => item.type === 'food' && item.day === day);
 }
 
-function calorieDialog(day, id) {
+function recentFoods() {
+  const latest = new Map();
+  for (const meal of [...daily.values()].filter(item=>item.type==='food').sort((a,b)=>b.day.localeCompare(a.day))) {
+    const name=meal.name.toLowerCase();
+    if (!latest.has(name)) latest.set(name,meal);
+  }
+  return [...latest.values()].slice(0,5);
+}
+
+function calorieDialog(day, id, copyKey) {
   const old = id ? daily.get(key(day,id)) : null;
-  const lastFoods = [...new Map([...daily.values()].filter(r => r.type === 'food').sort((a,b) => b.day.localeCompare(a.day)).map(r => [r.name.toLowerCase(),r])).values()].slice(0,6);
-  const suggestions = old ? '' : lastFoods.map(r => '<option value="'+esc(r.name)+'"></option>').join('');
+  const source = old || (copyKey ? daily.get(copyKey) : null);
+  const suggestions = old ? '' : recentFoods().map(r => '<option value="'+esc(r.name)+'"></option>').join('');
   showDialog(old ? 'Edit food' : 'Add food', '<p class="dialog-sub">'+dateLabel(day)+
     '</p><form id="food-form"><label class="field">Food or drink<input name="name" maxlength="80" required list="recent-food" value="'+
-    esc(old?.name)+'"></label><datalist id="recent-food">'+suggestions+'</datalist><label class="field">Calories (kcal)<input name="kcal" type="number" min="0" max="20000" step="1" inputmode="numeric" required value="'+
-    (old?.kcal ?? '')+'"></label><div class="dialog-actions">'+
+    esc(source?.name)+'"></label><datalist id="recent-food">'+suggestions+'</datalist><label class="field">Calories (kcal)<input name="kcal" type="number" min="0" max="20000" step="1" inputmode="numeric" required value="'+
+    (source?.kcal ?? '')+'"></label><div class="dialog-actions">'+
     (old ? '<button type="button" class="ghost" data-remove-daily="'+dailyKey(old)+'">Remove</button>' : '')+
     '<button class="primary">Save food</button></div></form>', {day, id});
 }
@@ -87,18 +97,24 @@ function calories() {
   const meals = foodOn(selected);
   const total = meals.reduce((sum,item) => sum + item.kcal, 0);
   const weekDays = Array.from({length:7},(_,i)=>offset(selected,i-6));
+  const max = Math.max(1,...weekDays.map(day=>foodOn(day).reduce((n,r)=>n+r.kcal,0)));
   const weekRows = weekDays.map(day => {
     const items=foodOn(day);
-    const text = items.length ? items.reduce((sum,item) => sum+item.kcal,0).toLocaleString('en-GB')+' kcal' : 'No entries';
-    return '<button class="food-row" data-open-log="calories" data-session="'+day+'"><span>'+dateLabel(day)+'</span><strong>'+text+'</strong></button>';
+    const amount = items.reduce((sum,item) => sum+item.kcal,0);
+    const text = items.length ? amount.toLocaleString('en-GB')+' kcal' : 'No entries';
+    return '<button class="food-row" data-open-log="calories" data-session="'+day+'"><span>'+dateLabel(day)+'</span><span class="calorie-bar" aria-hidden="true"><i style="width:'+percentage(amount,max)+'%"></i></span><strong>'+text+'</strong></button>';
   }).join('');
+  const recent = recentFoods();
+  const shortcuts = recent.length ? panel('Recent foods','Tap an item to reuse its last portion.',recent.map(item =>
+    '<button class="food-row" data-food-day="'+selected+'" data-copy-food="'+dailyKey(item)+'"><span>'+esc(item.name)+
+    '</span><strong>'+item.kcal+' kcal</strong></button>').join('')) : '';
   return head('Calories',fmt(selected,{weekday:'long',day:'numeric',month:'long',year:'numeric'}),controls())+
     '<div class="two-col"><section class="card hero calorie-hero"><div class="hero-label">Daily intake</div>'+
     '<div class="stat">'+total.toLocaleString('en-GB')+' <small>kcal</small></div><button class="primary" data-food-day="'+
     selected+'">'+icon('plus')+' Add food</button></section>'+
     panel('Food log','',meals.length ? meals.map(item => '<button class="food-row" data-food-day="'+item.day+
     '" data-food-id="'+item.id+'"><span>'+esc(item.name)+'</span><strong>'+item.kcal.toLocaleString('en-GB')+
-    ' kcal</strong></button>').join('') : blank('Add a food or drink and enter its calories.'))+panel('Last 7 days','',weekRows)+'</div>';
+    ' kcal</strong></button>').join('') : blank('Add a food or drink and enter its calories.'))+panel('Last 7 days','',weekRows)+shortcuts+'</div>';
 }
 
 function weightInsights() {
@@ -148,7 +164,7 @@ function saveDailyForm(event) {
       notify('That exercise already exists in this group.');
       return;
     }
-    item = {type:'exercise',id:id || localId('custom_'),group,name,created:byId[id]?.created || selected};
+    item = {type:'exercise',id:id || localId('custom_'),group,name,created:byId[id]?.created || selected,archived:byId[id]?.archived};
   } else if (form.id === 'weight-form') {
     item = {type:'weight',id:'weight',day,kg:Number(data.get('kg'))};
   } else {
@@ -176,4 +192,26 @@ function removeDaily(id) {
     render();
     notify(storageIssue || 'Entry restored');
   });
+}
+
+
+function archivedExercises() {
+  const archived=exercises.filter(e=>e.archived);
+  const choices=archived.map(e=>'<button class="choice" data-restore-exercise="'+e.id+'">'+esc(e.name)+
+    '<small>Restore</small></button>').join('');
+  showDialog('Archived exercises',choices || blank('No custom exercises have been archived.'));
+}
+
+function setExerciseArchived(id, archive) {
+  const item=daily.get(key('catalogue',id));
+  if (!item) return;
+  const next={...item};
+  if (archive) next.archived = today < next.created ? next.created : today;
+  else delete next.archived;
+  writeJournal(dailyKey(next),next,daily);
+  rebuildCatalogue();
+  if (view==='insights' && !exercisesAt(today).some(e=>e.id===selectedExercise)) selectedExercise=exercises[0].id;
+  closeDialog();
+  render();
+  notify(storageIssue || (archive ? 'Exercise archived. Its history is kept.' : 'Exercise restored.'));
 }
