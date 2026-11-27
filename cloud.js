@@ -1,96 +1,274 @@
-// Optional private cloud backup. The browser retains no password or session token between visits.
-const cloudConfigKey = (isDan ? 'bench-dan' : 'bench-marx')+'.cloud-config';
-let cloudConfig, cloudSession, reviewedRevision;
-try { cloudConfig = JSON.parse(localStorage.getItem(cloudConfigKey) || 'null'); } catch {}
+// Journal records and pending writes are scoped to the app, project and account.
+const cloudJournal = isDan ? 'dan' : 'marx';
+const cloudConfigKey = 'bench-'+cloudJournal+'.cloud-config';
+const cloudSessionKey = 'bench-'+cloudJournal+'.cloud-session';
+const cloudProject = null; // Set to {endpoint, apiKey} when the training project is provisioned.
+let cloudConfig = cloudProject, cloudSession, cloudSyncing, cloudTimer;
+let cloudStatus = '', cloudMessage = '', cloudNeedsPaint = false;
 
+function validCloudConfig(config) {
+  return /^https:\/\/[a-z0-9]+\.supabase\.co$/.test(config?.endpoint) &&
+    /^sb_publishable_[a-zA-Z0-9_-]+$/.test(config.apiKey);
+}
+try {
+  const saved = JSON.parse(localStorage.getItem(cloudConfigKey));
+  if (!cloudConfig && validCloudConfig(saved)) cloudConfig = saved;
+  const session = JSON.parse(sessionStorage.getItem(cloudSessionKey));
+  if (session?.endpoint === cloudConfig?.endpoint && /^[0-9a-f-]{36}$/i.test(session?.owner || '') &&
+      session.token && session.refresh) cloudSession = session;
+} catch {}
+
+function cloudScope(session) {
+  return session.endpoint.split('/')[2]+'.'+session.owner+'.';
+}
+function journalPrefix(session = cloudSession) {
+  return session ? 'bench-'+cloudJournal+'.account.'+cloudScope(session) : prefix;
+}
+function outboxPrefix(session) {
+  return 'bench-'+cloudJournal+'.outbox.'+cloudScope(session);
+}
+function cloudLabel() {
+  if (storageIssue) return 'Storage needs attention';
+  if (!cloudSession) return cloudConfig ? 'Sign in to sync' : 'Set up cloud sync';
+  if (cloudStatus === 'error') return 'Cloud sync paused';
+  if (cloudStatus === 'saved') return 'Saved to cloud';
+  return 'Syncing to cloud';
+}
+function setCloudStatus(status, message = '') {
+  cloudStatus = status;
+  cloudMessage = message;
+  const label = document.querySelector('[data-cloud-label]');
+  if (label) label.textContent = cloudLabel();
+  const note = document.querySelector('[data-cloud-note]');
+  if (note) note.textContent = cloudMessage || cloudLabel();
+}
 function cloudDialog(message = '') {
   const note = message ? '<p class="dialog-sub" role="status">'+esc(message)+'</p>' : '';
   if (cloudSession) {
-    showDialog('Cloud backup', note+'<p class="dialog-sub">Your signed-in account has a private backup for '+appName+
-      '. Review it before saving a new copy.</p><button class="choice" data-action="cloud-review">Review cloud backup</button>'+
-      '<button class="choice" data-action="cloud-save">Save this journal to cloud</button>'+
+    showDialog('Cloud sync', note+'<p class="dialog-sub">Changes to '+appName+
+      ' sync automatically. Sign in to the same account on another device to open your journal.</p>'+
+      '<p class="note" data-cloud-note role="status">'+esc(cloudMessage || cloudLabel())+'</p>'+
+      '<button class="choice" data-action="cloud-retry">Sync now</button>'+
+      '<button class="choice" data-action="cloud-copy">Copy this device’s earlier logs</button>'+
+      '<button class="choice" data-action="cloud-review">Review an older cloud backup</button>'+
       '<button class="ghost wide" data-action="cloud-sign-out">Sign out</button>');
     return;
   }
-  showDialog('Connect to Supabase', note+
-    '<p class="dialog-sub">Use a training project with the Bench journal database installed and an existing sign-in.</p>'+
-    '<form id="cloud-form"><label class="field">Project URL<input name="endpoint" type="url" required value="'+esc(cloudConfig?.endpoint)+
+  const setup = !cloudProject && !cloudConfig;
+  showDialog('Cloud sync', note+
+    '<p class="dialog-sub">'+(setup
+      ? 'Connect an existing Bench training project to start syncing. Until then, entries are saved in this browser.'
+      : 'Sign in to open your private '+appName+' journal.')+'</p>'+
+    '<form id="cloud-form">'+(!cloudProject ?
+    '<details class="cloud-setup"'+(setup?' open':'')+'><summary>Supabase project settings</summary>'+
+    '<label class="field">Project URL<input name="endpoint" type="url" required value="'+esc(cloudConfig?.endpoint)+
     '" placeholder="https://your-project.supabase.co"></label><label class="field">Publishable key<input name="apiKey" required value="'+
-    esc(cloudConfig?.apiKey)+'"></label><label class="field">Email<input name="email" type="email" autocomplete="username" required></label>'+
+    esc(cloudConfig?.apiKey)+'"></label></details>':'')+
+    '<label class="field">Email<input name="email" type="email" autocomplete="username" required></label>'+
     '<label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label>'+
     '<div class="dialog-actions"><button class="primary">Sign in</button></div></form>');
 }
 
-async function cloudRequest(path, options = {}, config = cloudConfig) {
+async function cloudFetch(config, path, options = {}, token) {
   const headers = {apikey:config.apiKey,'Content-Type':'application/json',...options.headers};
-  if (cloudSession) headers.Authorization='Bearer '+cloudSession.token;
-  const response = await window.fetch(config.endpoint+path,{...options,headers});
-  if (response.status === 401) {cloudSession = null; throw Error('Sign in again to access your cloud backup.');}
-  if (response.status === 409) throw Error('A backup already exists. Review the latest copy before saving.');
-  if (!response.ok) throw Error('Supabase could not complete the request. Check your project, access and connection.');
-  return response.json();
+  if (token) headers.Authorization = 'Bearer '+token;
+  return window.fetch(config.endpoint+path,{...options,headers});
+}
+
+function saveCloudSession(session, result) {
+  session.token = result.access_token;
+  session.refresh = result.refresh_token;
+  try { sessionStorage.setItem(cloudSessionKey,JSON.stringify(session)); } catch {}
+}
+async function cloudRequest(session, path, options = {}) {
+  const config = cloudConfig;
+  let response = await cloudFetch(config,path,options,session.token);
+  if (response.status === 401) {
+    if (session !== cloudSession) throw Error('This cloud session has ended.');
+    const refresh = await cloudFetch(config,'/auth/v1/token?grant_type=refresh_token',{
+      method:'POST',body:JSON.stringify({refresh_token:session.refresh})
+    });
+    if (!refresh.ok) throw Error('Your session has expired. Sign out and sign back in to resume sync.');
+    const result = await refresh.json();
+    if (!result.access_token || !result.refresh_token || session !== cloudSession)
+      throw Error('Sign in again to resume sync.');
+    saveCloudSession(session,result);
+    response = await cloudFetch(config,path,options,session.token);
+  }
+  if (!response.ok)
+    throw Error(response.status === 404
+      ? 'The training database has not been installed in this Supabase project.'
+      : 'Supabase could not sync this journal. Check project access and try again.');
+  if (response.status !== 204) return response.json();
 }
 
 async function cloudSignIn(form) {
   const data = new FormData(form);
-  const endpoint = data.get('endpoint').trim().replace(/\/$/,'');
-  const apiKey = data.get('apiKey').trim();
-  if (!/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(endpoint) || !/^sb_publishable_[a-zA-Z0-9_-]+$/.test(apiKey)) {
-    cloudDialog('Enter the project HTTPS URL and a publishable key.');
-    return;
+  const config = cloudProject || {
+    endpoint:data.get('endpoint')?.trim().replace(/\/$/,''),
+    apiKey:data.get('apiKey')?.trim()
+  };
+  if (!validCloudConfig(config)) throw Error('Enter the project HTTPS URL and its publishable key.');
+  if (unsaved.size) throw Error('Export this device’s unsaved changes before connecting an account.');
+  const response = await cloudFetch(config,'/auth/v1/token?grant_type=password',{
+    method:'POST',body:JSON.stringify({email:data.get('email').trim(),password:data.get('password')})
+  });
+  if (!response.ok) throw Error('Sign-in failed. Check your account details and project settings.');
+  const result = await response.json();
+  if (!result.access_token || !result.refresh_token || !/^[0-9a-f-]{36}$/i.test(result.user?.id || ''))
+    throw Error('Supabase did not return a signed-in account.');
+  cloudConfig = config;
+  try { localStorage.setItem(cloudConfigKey,JSON.stringify(config)); } catch {}
+  cloudSession = {owner:result.user.id,endpoint:config.endpoint};
+  saveCloudSession(cloudSession,result);
+  setCloudStatus('syncing');
+  loadEntries();
+  render();
+  cloudDialog();
+  await syncJournal();
+}
+
+// Persist the pending change before updating the on-device view. Null entries are deletions.
+function persistJournalRecord(k, encoded) {
+  const session = cloudSession;
+  if (session) localStorage.setItem(outboxPrefix(session)+k,JSON.stringify({
+    id:window.crypto.randomUUID(),encoded
+  }));
+  if (encoded === null) localStorage.removeItem(journalPrefix()+k);
+  else localStorage.setItem(journalPrefix()+k,encoded);
+  if (session) planCloudSync();
+}
+function planCloudSync() {
+  if (!cloudSession) return;
+  setCloudStatus('syncing');
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(syncJournal,350);
+}
+
+async function syncEntries(session) {
+  const cached = journalPrefix(session), outbox = outboxPrefix(session);
+  // Flush writes first, then read the server's complete journal. Changes made during
+  // the request stay queued and take priority over the incoming copy.
+  const pending = storageKeys(outbox).map(k=>[k,localStorage.getItem(k)]).filter(([,v])=>v!==null);
+  for (let i=0;i<pending.length;i+=100) {
+    const rows = pending.slice(i,i+100).map(([k,value])=>{
+      const {encoded} = JSON.parse(value);
+      return {owner:session.owner,journal:cloudJournal,entry_key:k.slice(outbox.length),payload:JSON.parse(encoded)};
+    });
+    await cloudRequest(session,'/rest/v1/bench_sync_entries?on_conflict=owner,journal,entry_key',{
+      method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)
+    });
+    if (session !== cloudSession) return;
   }
-  const config = {endpoint,apiKey};
-  const result = await cloudRequest('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({
-    email:data.get('email'),password:data.get('password')
-  })},config);
-  if (!result.access_token || !result.user?.id) throw Error('Supabase did not return a signed-in account.');
-  cloudSession={token:result.access_token,owner:result.user.id};
-  cloudConfig=config;
-  reviewedRevision=undefined;
-  try {localStorage.setItem(cloudConfigKey,JSON.stringify(config));} catch {}
-  cloudDialog('Signed in.');
+
+  const remote = new Map();
+  let after = '';
+  for (;;) {
+    const params = new URLSearchParams({owner:'eq.'+session.owner,journal:'eq.'+cloudJournal,
+      select:'entry_key,payload',order:'entry_key.asc',limit:'200'});
+    if (after) params.set('entry_key','gt.'+after);
+    const rows = await cloudRequest(session,'/rest/v1/bench_sync_entries?'+params);
+    if (session !== cloudSession) return;
+    if (!rows.length) break;
+    for (const row of rows) if (row.payload !== null)
+      remote.set(cached+row.entry_key,JSON.stringify(row.payload));
+    after = rows.at(-1).entry_key;
+  }
+
+  for (const [k,sent] of pending) if (localStorage.getItem(k) === sent) localStorage.removeItem(k);
+  const unsent = new Set(storageKeys(outbox).map(k=>cached+k.slice(outbox.length)));
+  let changed = false;
+  for (const k of storageKeys(cached)) {
+    if (!remote.has(k) && !unsent.has(k)) {
+      localStorage.removeItem(k);
+      changed = true;
+    }
+  }
+  for (const [k,value] of remote) {
+    if (!unsent.has(k) && localStorage.getItem(k)!==value) {
+      localStorage.setItem(k,value);
+      changed = true;
+    }
+  }
+  if (changed) {
+    loadEntries();
+    if (modal.open) cloudNeedsPaint = true;
+    else render();
+  }
+  setCloudStatus(unsent.size ? 'syncing' : 'saved');
+  if (unsent.size) planCloudSync();
+}
+
+function syncJournal() {
+  if (!cloudSession || cloudSyncing) return cloudSyncing;
+  const session = cloudSession;
+  const work = () => session === cloudSession && syncEntries(session);
+  // On browsers with Web Locks, serialize cloud writes across tabs on this device.
+  const locks = window.navigator?.locks;
+  cloudSyncing = Promise.resolve()
+    .then(()=>locks ? locks.request(outboxPrefix(session),work) : work())
+    .catch(error=>{
+      if (session === cloudSession) setCloudStatus('error',error.message || 'Connection interrupted. Sync will retry.');
+    })
+    .finally(()=>{cloudSyncing = null;if (cloudSession && cloudSession !== session) planCloudSync();});
+  return cloudSyncing;
 }
 
 async function cloudAction(action) {
-  if (action === 'cloud-sign-out') {
-    cloudSession = null;
-    reviewedRevision = undefined;
-    cloudDialog('Signed out on this device.');
-    return;
-  }
   if (!cloudSession) {cloudDialog();return;}
-  const journal = isDan ? 'dan' : 'marx';
-  const path = '/rest/v1/bench_journals?journal=eq.'+journal+'&owner=eq.'+encodeURIComponent(cloudSession.owner);
-  if (action === 'cloud-review') {
-    const [row] = await cloudRequest(path+'&select=payload,revision,updated_at');
-    reviewedRevision = row?.revision ?? null;
-    if (!row) {cloudDialog('This account has no cloud backup for '+appName+'.');return;}
-    await previewImport({size:0,text:async()=>JSON.stringify(row.payload)});
+  if (action === 'cloud-sign-out') {
+    if (unsaved.size) throw Error('Export the unsaved changes before signing out.');
+    cloudSession = null;
+    cloudNeedsPaint = false;
+    try {sessionStorage.removeItem(cloudSessionKey);} catch {}
+    setCloudStatus('');
+    loadEntries();
+    render();
+    cloudDialog('Signed out. Any pending cloud changes will retry when the same account signs back in.');
     return;
   }
-  if (reviewedRevision === undefined) {
-    const [row] = await cloudRequest(path+'&select=revision');
-    if (row) {cloudDialog('Review the existing backup before saving.');return;}
-    reviewedRevision=null;
-  }
-  const updating = reviewedRevision !== null;
-  const body = {payload:backupPayload(),revision:window.crypto.randomUUID(),updated_at:new Date().toISOString()};
-  const [row] = await cloudRequest(updating ? path+'&revision=eq.'+reviewedRevision : '/rest/v1/bench_journals',{
-    method:updating ? 'PATCH' : 'POST',headers:{Prefer:'return=representation'},
-    body:JSON.stringify(updating ? body : {...body,journal})
-  });
-  if (!row) {
-    reviewedRevision=undefined;
-    cloudDialog('The cloud backup changed. Review its latest entries before saving.');
+  if (action === 'cloud-retry') {
+    setCloudStatus('syncing');
+    await syncJournal();
     return;
   }
-  reviewedRevision=row.revision;
-  cloudDialog('Cloud backup saved.');
+  if (action === 'cloud-copy') {
+    showDialog('Copy earlier logs?', '<p class="dialog-sub">Copy missing entries from this browser’s '+appName+
+      ' journal into your signed-in account. Existing account entries take priority.</p>'+
+      '<button class="primary wide" data-action="cloud-copy-confirm">Copy missing entries</button>'+
+      '<button class="ghost wide" data-action="cloud">Cancel</button>');
+    return;
+  }
+  if (action === 'cloud-copy-confirm') {
+    await syncJournal();
+    if (cloudStatus === 'error') throw Error('Connect to your cloud journal first, then try again.');
+    let copied = 0;
+    const scoped = journalPrefix();
+    for (const k of storageKeys(prefix)) {
+      const key = k.slice(prefix.length);
+      if (localStorage.getItem(scoped+key)!==null) continue;
+      persistJournalRecord(key,localStorage.getItem(k));
+      copied++;
+    }
+    loadEntries();
+    render();
+    cloudDialog(copied ? copied+' earlier entries queued for sync.' : 'There are no missing entries to copy.');
+    return;
+  }
+  const [row] = await cloudRequest(cloudSession,'/rest/v1/bench_journals?journal=eq.'+cloudJournal+'&select=payload');
+  if (!row) {cloudDialog('No earlier cloud backup was found.');return;}
+  await previewImport({size:0,text:async()=>JSON.stringify(row.payload)});
 }
 
 async function runCloud(action) {
-  if (typeof action !== 'function') action.disabled=true;
+  if (typeof action !== 'function') action.disabled = true;
   try { await (typeof action === 'function' ? action() : cloudAction(action.dataset.action)); }
   catch (error) {cloudDialog(error.message || 'The cloud request failed.');}
-  finally {if(typeof action !== 'function') action.disabled=false;}
+  finally {if(typeof action !== 'function') action.disabled = false;}
+}
+
+function startCloudSync() {
+  if (cloudSession) syncJournal();
+  window.addEventListener('online',syncJournal);
+  if (typeof setInterval === 'function') setInterval(()=>{if(!document.hidden) syncJournal();},20000);
 }

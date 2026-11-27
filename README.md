@@ -10,7 +10,7 @@ Use **Untick** beside an exercise or below a marked rep to clear it directly. Th
 
 **Insights** shows workout coverage, intensity, missed movements, gymnastics rep quality, full sets, skill histories and cross-session patterns over 7, 28 or 90 days. **History** includes a combined calendar, editable workout chart and PR book.
 
-Entries are stored in the current browser. Use the settings button to export or merge a JSON backup, enable optional chimes or reduce animations. **Start fresh** stores a restorable journal on this device before clearing the active logs. Restoring fills missing entries and keeps newer marks. Existing Formlog and Bench Marx workout backups, including historical Pallof presses, remain readable.
+Signed-in journals sync to Supabase when the training project is connected. Otherwise entries are stored in the current browser. Use the settings button to export or merge a JSON backup, enable optional chimes or reduce animations. **Start fresh** stores a restorable journal on this device before clearing the active logs. Restoring fills missing entries and keeps newer marks. Existing Formlog and Bench Marx workout backups, including historical Pallof presses, remain readable.
 
 ## Hosting
 
@@ -24,7 +24,11 @@ Bench Dan uses this repository with its own home screen, catalogue, backups and 
 
 ## Supabase connection
 
-Use a dedicated project. Run `supabase.sql` in its SQL Editor and provision a confirmed email and password for each person through Supabase Auth. In the app, open **Settings and backups** and select **Supabase backup**. Enter the project's HTTPS URL and publishable key to sign in. The app can save and merge private cloud backups on demand. PostgreSQL row-level security limits each account to its own rows. The two apps use separate journal rows, including when an account uses both. Automatic sync is not configured.
+1. Run `supabase.sql` in the SQL Editor of the dedicated Bench training project and create a confirmed Supabase Auth user for each person.
+2. Set `cloudProject` in `cloud.js` to the project HTTPS URL and publishable key to allow email-and-password sign-in from any device. Alternatively enter those public settings in **Cloud sync** on each browser.
+3. Sign in on each device. When the status reads **Saved to cloud**, the latest entries are on the server. Use **Copy this device’s earlier logs** to move existing local entries into the signed-in account.
+
+Changes sync automatically and retry when the app is open and connected. Account ownership is enforced by Supabase row-level security. The app name is also part of each journal key, so using the same sign-in in both apps still keeps the two journals separate. Journal types include workout marks, PRs, catalogue edits, daily weights, gymnastics reps and food entries as applicable. The browser holds a separate account cache and pending offline changes. Sign-out closes the account journal on that browser.
 
 ### Food photos and receipts
 

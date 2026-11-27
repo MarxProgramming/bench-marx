@@ -14,15 +14,23 @@ function updateStorageStatus() {
 function loadEntries() {
   const loaded = new Map(), saved = new Map();
   try {
+    const activePrefix = journalPrefix();
     let bad = false;
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (!k?.startsWith(prefix)) continue;
+      if (!k?.startsWith(activePrefix)) continue;
       try {
         const item = JSON.parse(localStorage.getItem(k));
-        saved.set(k.slice(prefix.length),item);
+        saved.set(k.slice(activePrefix.length),item);
       } catch {
         bad = true
+      }
+    }
+    if (cloudSession) {
+      const queue = outboxPrefix(cloudSession);
+      for (const k of storageKeys(queue)) {
+        const item = JSON.parse(localStorage.getItem(k));
+        saved.set(k.slice(queue.length),JSON.parse(item.encoded));
       }
     }
     daily.clear();
@@ -38,7 +46,7 @@ function loadEntries() {
     }
     rebuildCatalogue();
     for (const [id,item] of saved) {
-      if (item?.type) continue;
+      if (!item || item.type) continue;
       const record = cleanRecord(item);
       if (record && key(record.day,record.id) === id) loaded.set(id,record);
       else bad = true;
@@ -62,10 +70,7 @@ function storeEntry(day, id, r) {
 }
 function writeJournal(k,r,records) {
   try {
-    if (r)
-      localStorage.setItem(prefix + k, JSON.stringify(r));
-    else
-      localStorage.removeItem(prefix + k);
+    persistJournalRecord(k,r ? JSON.stringify(r) : null);
     unsaved.delete(k);
   } catch {
     unsaved.set(k, r || null)
@@ -209,9 +214,8 @@ function recent() {
            '<p class="empty-copy">Save a weight, height or other result on your third tap.</p>')
 }
 function footer() {
-  return '<div class="page-end"><span class="fine inline">' + icon('disk') +
-      (storageIssue ? 'Storage needs attention' : 'Saved on this device') +
-      '</span><button data-action="data">Settings &amp; backups</button></div>'
+  return '<div class="page-end"><button class="inline sync-button" data-action="cloud">'+icon('disk')+
+      '<span data-cloud-label>'+esc(cloudLabel())+'</span></button><button data-action="data">Settings &amp; backups</button></div>'
 }
 function workout() {
   const reminders=remindersFor(selected);

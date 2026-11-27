@@ -108,7 +108,8 @@ modal.addEventListener('close', () => {
   modalInfo = null;
   pendingImport = null;
   if (returnFocus?.isConnected) returnFocus.focus({preventScroll: true});
-  returnFocus = null
+  returnFocus = null;
+  if (cloudNeedsPaint) {cloudNeedsPaint = false;render();}
 });
 function options(day, id) {
   const r = entries.get(key(day, id));
@@ -189,11 +190,11 @@ function dateDialog() {
 function dataDialog() {
   showDialog(
       'Preferences &amp; backups',
-      preferenceControls()+'<p class="dialog-sub">Your journal is saved in this browser. Export a backup to move your logs to another device.</p><button class="choice" data-action="export">' +
+      preferenceControls()+'<button class="choice" data-action="cloud">'+icon('disk')+'Cloud sync<small>'+esc(cloudLabel())+'</small></button><p class="dialog-sub">'+(cloudSession ? 'Export a copy of your journal at any time.' : 'Your journal is saved in this browser. Sign in to a connected project to sync across devices.')+'</p><button class="choice" data-action="export">' +
           icon('download') + 'Export backup</button><button class="choice" data-action="import">' +
           icon('history') +
           'Import backup</button><input class="file-input" id="import-file" type="file" accept=".json,application/json"><p class="note">' +
-          entrySummary()+'</p><button class="choice" data-action="cloud">Supabase backup</button>'+
+          entrySummary()+'</p>'+
           (groups.some(g=>g.archived) || exercises.some(e=>e.archived) ? '<button class="choice" data-action="archived-exercises">Removed categories and exercises</button>' : '')+resetActions())
 }
 function backupPayload() {
@@ -438,7 +439,9 @@ document.addEventListener('click', event => {
     case 'archived-exercises':archivedExercises();break;
     case 'cloud':cloudDialog();break;
     case 'cloud-review':
-    case 'cloud-save':
+    case 'cloud-retry':
+    case 'cloud-copy':
+    case 'cloud-copy-confirm':
     case 'cloud-sign-out':runCloud(el);break;
     case 'review-reset':reviewReset();break;
     case 'confirm-reset':resetJournal();break;
@@ -527,7 +530,13 @@ document.addEventListener('click', event => {
 });
 document.addEventListener('submit', e => {
   saveDailyForm(e);
-  if (e.target.id === 'cloud-form') {e.preventDefault();runCloud(()=>cloudSignIn(e.target));}
+  if (e.target.id === 'cloud-form') {
+    e.preventDefault();
+    const submit = e.submitter;
+    if (submit?.disabled) return;
+    if (submit) submit.disabled = true;
+    runCloud(()=>cloudSignIn(e.target)).finally(()=>{if(submit) submit.disabled = false;});
+  }
   if (e.target.id === 'pr-form') {
     e.preventDefault();
     const form = e.target, data = new FormData(form), {day, id} = modalInfo;
@@ -572,16 +581,17 @@ document.addEventListener('change', e => {
   if (e.target.id === 'import-file') previewImport(e.target.files[0])
 });
 window.addEventListener('storage', e => {
-  if (e.key === null || e.key.startsWith(prefix)) {
+  if (e.key === null || e.key.startsWith(journalPrefix()) || (cloudSession && e.key.startsWith(outboxPrefix(cloudSession)))) {
     loadEntries();
-    render();
+    if (modal.open) cloudNeedsPaint = true;
+    else render();
     hideToast()
   }
 });
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) rollover()
+  if (!document.hidden) {rollover();syncJournal();}
 });
-window.addEventListener('focus', rollover);
+window.addEventListener('focus',()=>{rollover();syncJournal();});
 function scheduleMidnight() {
   const now = new Date(), midnight = new Date(now);
   midnight.setHours(24, 0, 0, 0);
@@ -601,6 +611,7 @@ scheduleMidnight();
 loadEntries();
 if(knownView(linkedView()))view=linkedView();
 render(true);
+startCloudSync();
 
 function celebrateRecord() {
   if (!motionAllowed()) return;

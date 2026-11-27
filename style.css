@@ -1811,8 +1811,8 @@ button:focus-visible,summary:focus-visible,select:focus-visible{outline:2px soli
 @media(max-width:370px){.analysis-tabs button{font-size:.82rem}.weekcol{min-width:0}.gym-segs b{width:3px}.rep-strip{gap:5px}.legend{flex-wrap:wrap}}
 
 /* The display stack uses native condensed type where available; Rubik travels with the journal. */
-@font-face{font-family:Rubik;src:url("./rubik-regular.ttf?v=4.7") format("truetype");font-weight:400 550;font-style:normal;font-display:swap}
-@font-face{font-family:Rubik;src:url("./rubik-bold.ttf?v=4.7") format("truetype");font-weight:600 900;font-style:normal;font-display:swap}
+@font-face{font-family:Rubik;src:url("./rubik-regular.ttf?v=4.8") format("truetype");font-weight:400 550;font-style:normal;font-display:swap}
+@font-face{font-family:Rubik;src:url("./rubik-bold.ttf?v=4.8") format("truetype");font-weight:600 900;font-style:normal;font-display:swap}
 :root{
   --bg:#080f18;--panel:#102031;--panel2:#172b40;--line:#2c4359;--soft:#203447;--white:#eef6ff;--muted:#b2c3d4;--dim:#8ea5bb;
   --purple:#70c3ff;--violet:#81c8f5;--mint:#83d7ff;--aqua:#a6deff;--orange:#ffae6e;--green:#7de4b0;--red:#ff8b95;
@@ -1832,7 +1832,7 @@ h2{font-family:Rubik,sans-serif;font-weight:600;letter-spacing:-.035em}h3,.hero-
 .card,.weekly.card{background:linear-gradient(135deg,#1d3446e3 0%,#142637e8 40%,#101d2bea 100%);border:1px solid #82b4d033;box-shadow:0 16px 42px -11px #01050cd9,0 4px 13px #02081063,inset 0 1px #c6e9ff0b;backdrop-filter:blur(12px)}
 .hero.card,.hero.gym-hero.card{background:radial-gradient(ellipse at 99% 120%,#e9975227,transparent 49%),radial-gradient(ellipse at 81% 16%,#227fb944,transparent 60%),linear-gradient(123deg,#17374eec,#102a42ef 50%,#1b3952eb);border-color:#42719691}
 .hero:before{opacity:.15}.hero-label,.gym-hero .hero-label{color:#c4e7fb}.hero .pct,.gym-hero .pct{color:#c0dff2}
-.nav-emblem{display:inline-block;flex:0 0 auto;width:29px;height:29px;background:url("./emblems.webp?v=4.7") 0 50% / 400% 100% no-repeat;filter:saturate(.57) brightness(.90);opacity:.85}
+.nav-emblem{display:inline-block;flex:0 0 auto;width:29px;height:29px;background:url("./emblems.webp?v=4.8") 0 50% / 400% 100% no-repeat;filter:saturate(.57) brightness(.90);opacity:.85}
 .emblem-gymnastics{background-position-x:33.333333%}.emblem-insights{background-position-x:66.666667%}.emblem-history{background-position-x:100%}
 .nav-item{gap:8px;padding:7px 13px;color:#b5c8d8}.nav-item[aria-current=page]{background:linear-gradient(130deg,#21445d,#172f46);box-shadow:inset 0 0 0 1px #71b4e32f;color:#eaf7ff}
 .nav-item[aria-current=page] .nav-emblem{filter:saturate(.78) brightness(1.15);opacity:1}
@@ -2124,3 +2124,63 @@ html[data-journal=dan] {--notice-due:#ddc193;--notice-heavy:#b9c2a7;--notice-pau
 .attention-summary-row .row-reminder {margin-top:0;text-align:right;flex-shrink:0;max-width:46%}
 .reminder-rules {margin:12px 0 18px;padding-left:22px;color:var(--muted);line-height:1.5;font-size:.9rem}
 .reminder-rules li {margin-bottom:8px}
+
+.sync-button {min-height:40px;padding:4px 2px;text-align:left}
+.sync-button:hover {text-decoration:underline;text-underline-offset:3px}
+.cloud-setup {margin-bottom:16px;color:var(--muted)}
+.cloud-setup summary {cursor:pointer;padding:7px 0;font-size:.875rem}
+.cloud-setup .field {margin-top:10px}
+
+/* Dan's light canvas frames dark wine and walnut panels. */
+html[data-journal=dan] {
+  --bg:#e5ddcd;
+  --panel:#2e2525;
+  --panel2:#382b2d;
+  --white:#f9edda;
+  --muted:#ddcbb8;
+  --dim:#cbb7a8;
+  --dan-ink:#352629;
+  --dan-paper-line:#bfb29e;
+}
+[data-journal=dan] body:before {
+  background:radial-gradient(ellipse at 18% 0%,#fcf4e7 0%,transparent 61%),
+    linear-gradient(148deg,#ede5d6,#d8cbb8 87%);
+}
+[data-journal=dan] body:after {
+  background:repeating-linear-gradient(35deg,transparent 0 3px,#5d493009 3px 4px,transparent 4px 7px);
+  opacity:.65;
+}
+[data-journal=dan] header {
+  background:linear-gradient(110deg,#2c2025,#422834);
+  border-color:#9f7b6c;
+  box-shadow:0 6px 19px #34202231;
+}
+[data-journal=dan] .brand {font-size:clamp(1.36rem,2.3vw,1.8rem)}
+[data-journal=dan] .page-title {border-bottom:1px solid var(--dan-paper-line);padding-bottom:18px}
+[data-journal=dan] .page-title h1 {color:var(--dan-ink)}
+[data-journal=dan] .page-title p {color:#65544d}
+[data-journal=dan] .page-title :is(.date-controls,.periods,.analysis-tabs) {
+  background:#f5ecdb;
+  color:#4a3535;
+  border-color:#b9a993;
+  box-shadow:0 3px 10px #503b241a;
+}
+[data-journal=dan] .page-title .date-button:hover {background:#e4d5c0}
+[data-journal=dan] .page-title :focus-visible,
+[data-journal=dan] .page-end :focus-visible {outline-color:#65464d}
+[data-journal=dan] .card {
+  background:linear-gradient(147deg,#38292c,#261f20 80%);
+  border-color:#7c655b;
+  box-shadow:0 20px 35px -17px #3c221d9e,0 4px 12px #4c2f2829,inset 0 1px #f5d5a222;
+}
+[data-journal=dan] .hero.card {
+  background:radial-gradient(ellipse at 82% 40%,#764c58aa,transparent 73%),
+    linear-gradient(140deg,#522e3c,#35242d 85%);
+  border-color:#906d69;
+}
+[data-journal=dan] .group-label {
+  background:linear-gradient(110deg,#473338,#37282b);
+  border-color:#6e5050;
+}
+[data-journal=dan] .page-end {border-color:var(--dan-paper-line)}
+[data-journal=dan] .page-end button {color:#574440;text-decoration-color:#78605c}
