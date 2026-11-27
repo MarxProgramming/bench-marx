@@ -53,27 +53,52 @@ async function runReceiptScan(image, task) {
   }
 }
 
-function runMealScan(image, task) {
-  const worker = foodWorker ||= new Worker('./food-photo-worker.js?v=4.3',{type:'module'});
-  task.cancel = () => {
-    worker.terminate();
-    foodWorker = null;
-  };
+// Reference portions are edible weights from the FDA raw fruit table.
+const standardPortions = {
+  Banana:{portion:'1 medium (126 g)', kcal:110},
+  Apple:{portion:'1 large (242 g)', kcal:130},
+  Orange:{portion:'1 medium (154 g)', kcal:80},
+  Strawberry:{portion:'8 medium (147 g)', kcal:50}
+};
+
+function runMealScan(image, task, mode='ingredients') {
+  const worker = foodWorker ||= new Worker('./food-photo-worker.js?v=4.4',{type:'module'});
+  task.cancel = () => {worker.terminate();foodWorker=null;};
   worker.onerror = () => scanFailed(task);
   worker.onmessage = ({data}) => {
     if (task !== scanTask || task.done) return;
-    if (data.failed) { scanFailed(task); return; }
-    if (Number.isFinite(data.progress)) task.status.textContent = 'Downloading the food scanner · '+data.progress+'%';
-    if (data.looking) task.status.textContent = 'Looking for food matches…';
-    if (data.results) {
-      task.cancel = null;
-      const choices = data.results.filter(r=>typeof r.label==='string' && r.score>=.03)
-        .map(r=>({name:r.label.replaceAll('_',' ').replace(/^./,c=>c.toUpperCase())}));
-      finishScan(task, choices.length ? 'Choose the closest match and enter your portion’s calories.' :
-        'No clear match. Try a photo of one dish or enter it below.',choices);
+    if (data.failed) {scanFailed(task);return;}
+    if (Number.isFinite(data.progress)) task.status.textContent='Loading the scanner · '+data.progress+'%';
+    if (data.looking) task.status.textContent='Looking for food matches…';
+    if (!Array.isArray(data.results)) return;
+    task.cancel=null;
+    const choices=data.results.filter(r=>typeof r.label==='string').map(r=>{
+      const name=r.label.replaceAll('_',' ').replace(/^./,c=>c.toUpperCase());
+      return {name, reference:standardPortions[name]};
+    });
+    const message=choices.length
+      ? 'Check the match and enter the calories for your portion.'
+      : 'No clear match. Try a closer photo or enter the food below.';
+    finishScan(task,message,choices);
+    if (data.strong && choices.length===1 && !task.form.elements.name.value.trim()) {
+      useScanChoice(0,false);
+    }
+    if (mode==='ingredients' && !data.strong) {
+      task.results.insertAdjacentHTML('afterend','<button class="scan-file dish-scan" type="button" data-dish-scan="true">Check for a prepared dish</button>');
     }
   };
-  worker.postMessage({file:image});
+  worker.postMessage({file:image,mode});
+}
+
+function scanPreparedDish(button) {
+  if (!scanTask?.image || !scanTask.done) return;
+  const task=scanTask;
+  button.remove();
+  task.done=false;
+  task.results.replaceChildren();
+  task.status.textContent='Opening the dish scanner. Its first download is about 60 MB.';
+  task.timer=setTimeout(()=>scanFailed(task),90000);
+  runMealScan(task.image,task,'dishes');
 }
 
 function receiptChoices(text) {
@@ -156,6 +181,8 @@ async function scanFood(input) {
   stopFoodScan();
   const review = form.querySelector('#scan-review');
   review.hidden = false;
+  review.querySelector('.dish-scan')?.remove();
+  form.querySelector('.scan-portion')?.remove();
   const task = {form,status:review.querySelector('.scan-status'),results:review.querySelector('.scan-results'), choices:[], prefilledKcal};
   scanTask = task;
   task.results.replaceChildren();
@@ -164,17 +191,17 @@ async function scanFood(input) {
     return;
   }
   const mode = input.dataset.scanInput;
-  task.status.textContent = mode === 'meal' ? 'Opening food scanner. The first download is about 60 MB.' : 'Opening receipt scanner…';
+  task.status.textContent = mode === 'meal' ? 'Opening food scanner…' : 'Opening receipt scanner…';
   task.timer = setTimeout(()=>scanFailed(task),90000);
   try {
     const image = await scanImage(file,mode);
     if (task !== scanTask || task.done) return;
     if (mode === 'receipt') await runReceiptScan(image,task);
-    else runMealScan(image,task);
+    else { task.image=image;runMealScan(image,task); }
   } catch { scanFailed(task); }
 }
 
-function useScanChoice(index) {
+function useScanChoice(index,focus=true) {
   const task = scanTask;
   const choice = task?.choices[index];
   if (!choice || !task.form.isConnected) return;
@@ -186,6 +213,21 @@ function useScanChoice(index) {
     kcal.value = choice.kcal ?? recent?.kcal ?? '';
     task.prefilledKcal = kcal.value;
   }
+  task.form.querySelector('.scan-portion')?.remove();
+  if (choice.reference && !kcal.value) {
+    const button=document.createElement('button');
+    button.className='ghost scan-portion';
+    button.type='button';
+    button.textContent='Use '+choice.reference.kcal+' kcal · '+choice.reference.portion;
+    button.addEventListener('click',()=>{
+      if (name.value!==choice.name) { button.remove();return; }
+      kcal.value=choice.reference.kcal;
+      task.prefilledKcal=kcal.value;
+      button.remove();
+      kcal.focus({preventScroll:true});
+    });
+    kcal.closest('label').after(button);
+  }
   task.status.textContent = 'Check the food and calories below before saving.';
-  (name.value ? kcal : name).focus({preventScroll:true});
+  if (focus) (name.value ? kcal : name).focus({preventScroll:true});
 }

@@ -230,10 +230,11 @@ function categoryId(group) {
 
 function categoryDialog(ref) {
   const group=groupOf(ref);
-  showDialog(group?'Edit category':'Add category',
+  showDialog(group?'Rename category':'Add category',
     '<form id="category-form"><label class="field">Category name<input name="name" maxlength="50" required value="'+esc(group?.name)+
     '"></label><div class="dialog-actions">'+(group?'<button class="ghost" type="button" data-remove-category="'+group.ref+'">Remove category</button>':'')+
-    '<button class="primary">Save category</button></div></form>',{group:ref});
+    '<button class="primary">'+(group?'Save name':'Save category')+'</button></div></form>',{group:ref});
+  if (group) document.querySelector('#category-form input')?.select?.();
 }
 
 function reviewExerciseRemoval(id) {

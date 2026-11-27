@@ -176,7 +176,7 @@ function groupList() {
     const n=es.filter(e=>entries.has(key(selected,e.id))).length;
     return '<section class="ex-group"><div class="group-label" style="--group-colour:'+g.colour+
       '"><h3>'+esc(g.name)+'</h3><span data-groupcount="'+i+'" class="count">'+n+' / '+es.length+'</span>'+
-      '<button class="category-edit" data-edit-category="'+i+'" aria-label="Edit '+esc(g.name)+'">'+icon('edit')+'</button>'+
+      '<button class="category-edit" data-edit-category="'+i+'" aria-label="Rename '+esc(g.name)+'">'+icon('edit')+'<span>Rename</span></button>'+
       '</div>'+es.map(row).join('')+'<button class="add-exercise" data-add-exercise="'+i+'" aria-label="Add exercise to '+
       esc(g.name)+'">'+icon('plus')+' Add exercise</button></section>';
   }).join('')+'<div class="add-category-line"><button class="add-exercise" data-action="add-category">'+icon('plus')+

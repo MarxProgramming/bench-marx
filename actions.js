@@ -287,6 +287,7 @@ document.addEventListener('click', event => {
   const el = event.target.closest('button');
   if (!el || el.disabled) return;
   const d = el.dataset;
+  if (d.dishScan) { scanPreparedDish(el); return; }
   if (d.scanPick) { document.querySelector('#scan-'+d.scanPick)?.click(); return; }
   if (d.scanUse !== undefined) { useScanChoice(Number(d.scanUse)); return; }
   if (d.archiveExercise) { reviewExerciseRemoval(d.archiveExercise); return; }

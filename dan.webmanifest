@@ -5,8 +5,8 @@
   "start_url": "./dan.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#2b171f",
-  "theme_color": "#2b171f",
+  "background_color": "#2a1b22",
+  "theme_color": "#2a1b22",
   "icons": [
     {
       "src": "./dan-icon-192.png",

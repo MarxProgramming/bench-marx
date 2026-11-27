@@ -28,8 +28,8 @@ Use a dedicated project. Run `supabase.sql` in its SQL Editor and provision a co
 
 ### Food photos and receipts
 
-In Bench Dan, open **Calories**, then **Add food**. Take or choose a food photo to get dish suggestions. Scan a receipt or label to read printed item names and explicit calorie values. Confirm the portion in the form before saving. A price is never used as a calorie value. The image is processed in the browser. The first food scan downloads a roughly 60 MB model, and the receipt scanner also needs to load its text recognition files.
+In Bench Dan, open **Calories**, then **Add food**. Take or choose a food photo to check common foods with MobileNetV2. If the first pass is uncertain, you can run a separate prepared-dish check. Both return editable suggestions, and the photo stays in the browser. Scan a receipt or label to read printed item names and explicit calorie values. Confirm the portion in the form before saving. A price is never used as a calorie value. The image is processed in the browser. The prepared-dish scan downloads a separate model of roughly 60 MB. The receipt scanner also loads its text recognition files when used. Fruit portion shortcuts use the FDA raw fruit reference chart.
 
 ### Workout categories
 
-Use **Add category** below the workout list. Open the pencil next to a category to rename or remove it. Swipe left on an exercise on a touchscreen or use **Edit** to rename or remove it. Confirm removal to hide the item from the workout list. Historical marks remain in History, and removed items can be restored from Settings.
+Use **Add category** below the workout list. Use **Rename** beside a category to change its name or remove it. Swipe left on an exercise on a touchscreen or use **Edit** to rename or remove it. Confirm removal to hide the item from the workout list. Historical marks remain in History, and removed items can be restored from Settings.
