@@ -20,13 +20,13 @@ Serve this directory as a static website, or publish the root of the main branch
 
 [Open Bench Dan](https://marxprogramming.github.io/bench-marx/dan.html)
 
-Bench Dan uses this repository with its own home screen, catalogue, backups and calorie journal. Both apps let you add custom exercises and log body weight. Bench Dan lets you enter calories for each food or drink and review the previous seven days.
+Bench Dan uses this repository with its own home screen, catalogue, backups and calorie journal. Both apps let you add custom exercises and log body weight. Bench Dan lets you enter calories for each food or drink and review the previous seven days. Use **Log same as yesterday** to copy the previous log date’s food and calorie entries. The shortcut skips entries already matched and offers Undo.
 
 ## Supabase connection
 
-1. Run `supabase.sql` in the SQL Editor of the dedicated Bench training project and create a confirmed Supabase Auth user for each person.
-2. Set `cloudProject` in `cloud.js` to the project HTTPS URL and publishable key to allow email-and-password sign-in from any device. Alternatively enter those public settings in **Cloud sync** on each browser.
-3. Sign in on each device. When the status reads **Saved to cloud**, the latest entries are on the server. Use **Copy this device’s earlier logs** to move existing local entries into the signed-in account.
+Both live apps are connected to the dedicated Bench Training project. Sign in from **Cloud sync** on each device. When the status reads **Saved to cloud**, the latest entries are on the server. Use **Upload device data** at the bottom of each app to copy existing local entries into the signed-in account. Entries already present in the cloud take priority.
+
+For a new project, run `supabase.sql` in its SQL Editor, configure the project's HTTPS URL and publishable key in `cloud.js` and provision each person’s confirmed email and password through Supabase Auth.
 
 Changes sync automatically and retry when the app is open and connected. Account ownership is enforced by Supabase row-level security. The app name is also part of each journal key, so using the same sign-in in both apps still keeps the two journals separate. Journal types include workout marks, PRs, catalogue edits, daily weights, gymnastics reps and food entries as applicable. The browser holds a separate account cache and pending offline changes. Sign-out closes the account journal on that browser.
 

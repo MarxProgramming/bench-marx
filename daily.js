@@ -113,8 +113,60 @@ function calorieDialog(day, id, copyKey) {
     '<button class="primary">Save food</button></div></form>', {day, id});
 }
 
+// Preserve repeated portions from the source day and match any already logged
+// entries one for one. Reusing the source ID makes repeat taps and devices agree.
+function foodsToRepeat(day) {
+  const previous = foodOn(offset(day,-1));
+  const current = foodOn(day);
+  const repeated = new Set(previous.map(food=>food.id));
+  const copies = new Set(current.filter(food=>repeated.has(food.id)).map(food=>food.id));
+  const remainingPortions = new Map();
+  const portion = food=>JSON.stringify([food.name.toLocaleLowerCase('en-GB'),food.kcal]);
+  for (const food of current) {
+    if (copies.has(food.id)) continue;
+    const match = portion(food);
+    remainingPortions.set(match,(remainingPortions.get(match) || 0)+1);
+  }
+  return previous.filter(food=>{
+    if (copies.has(food.id)) return false;
+    const match = portion(food), count = remainingPortions.get(match) || 0;
+    if (count) remainingPortions.set(match,count-1);
+    return count === 0;
+  });
+}
+function repeatPreviousFood(day) {
+  if (!isDan || !validDay(day) || day > today) return;
+  loadEntries();
+  const repeated = foodsToRepeat(day).map(food=>({...food,day}));
+  if (!repeated.length) {
+    render();
+    notify(foodOn(offset(day,-1)).length ? 'Yesterday’s foods are already logged.' : 'No food logged the previous day.');
+    return;
+  }
+  for (const food of repeated) writeJournal(dailyKey(food),food,daily);
+  render();
+  document.querySelector('.calorie-actions [data-food-day]')?.focus({preventScroll:true});
+  playNotes([440,554,660]);
+  notify(storageIssue || (repeated.length===1 ? '1 food copied' : repeated.length+' foods copied'),()=>{
+    loadEntries();
+    let removed = 0;
+    for (const food of repeated) {
+      const id = dailyKey(food), current = daily.get(id);
+      if (current?.name !== food.name || current.kcal !== food.kcal) continue;
+      writeJournal(id,null,daily);
+      removed++;
+    }
+    render();
+    notify(storageIssue || (removed === repeated.length ? 'Food copy undone' : 'Unchanged copies removed'));
+  });
+}
+
 function calories() {
   const meals = foodOn(selected);
+  const repeatCount = foodsToRepeat(selected).length;
+  const repeatNote = repeatCount
+    ? repeatCount+(repeatCount===1 ? ' entry to copy' : ' entries to copy')
+    : foodOn(offset(selected,-1)).length ? 'Already logged' : 'No food logged the previous day';
   const total = meals.reduce((sum,item) => sum + item.kcal, 0);
   const weekDays = Array.from({length:7},(_,i)=>offset(selected,i-6));
   const max = Math.max(1,...weekDays.map(day=>foodOn(day).reduce((n,r)=>n+r.kcal,0)));
@@ -130,8 +182,10 @@ function calories() {
     '</span><strong>'+item.kcal+' kcal</strong></button>').join('')) : '';
   return head('Calories',fmt(selected,{weekday:'long',day:'numeric',month:'long',year:'numeric'}),controls())+
     '<div class="two-col"><section class="card hero calorie-hero"><div class="hero-label">Daily intake</div>'+
-    '<div class="stat">'+total.toLocaleString('en-GB')+' <small>kcal</small></div><button class="primary" data-food-day="'+
-    selected+'">'+icon('plus')+' Add food</button></section>'+
+    '<div class="stat">'+total.toLocaleString('en-GB')+' <small>kcal</small></div><div class="calorie-actions"><button class="primary" data-food-day="'+
+    selected+'">'+icon('plus')+' Add food</button><button class="ghost" data-repeat-food="'+selected+
+    '" aria-describedby="repeat-food-note"'+(!repeatCount ? ' disabled' : '')+'>Log same as yesterday</button></div>'+
+    '<p class="fine repeat-food-note" id="repeat-food-note">'+repeatNote+'</p></section>'+
     panel('Food log','',meals.length ? meals.map(item => '<button class="food-row" data-food-day="'+item.day+
     '" data-food-id="'+item.id+'"><span>'+esc(item.name)+'</span><strong>'+item.kcal.toLocaleString('en-GB')+
     ' kcal</strong></button>').join('') : blank('Add a food or drink and enter its calories.'))+panel('Last 7 days','',weekRows)+shortcuts+'</div>';

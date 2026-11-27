@@ -2,7 +2,8 @@
 const cloudJournal = isDan ? 'dan' : 'marx';
 const cloudConfigKey = 'bench-'+cloudJournal+'.cloud-config';
 const cloudSessionKey = 'bench-'+cloudJournal+'.cloud-session';
-const cloudProject = null; // Set to {endpoint, apiKey} when the training project is provisioned.
+// The publishable key identifies this app. Supabase Auth controls journal access.
+const cloudProject = {"endpoint":"https://abksqxqqtwespzemvtqv.supabase.co","apiKey":"sb_publishable_UpYWu1uNrSa7MJtfdYWjDQ_2bJ8O9ga"};
 let cloudConfig = cloudProject, cloudSession, cloudSyncing, cloudTimer;
 let cloudStatus = '', cloudMessage = '', cloudNeedsPaint = false;
 
@@ -42,24 +43,38 @@ function setCloudStatus(status, message = '') {
   const note = document.querySelector('[data-cloud-note]');
   if (note) note.textContent = cloudMessage || cloudLabel();
 }
-function cloudDialog(message = '') {
+function deviceDataKeys() {
+  return storageKeys(prefix);
+}
+function cloudDialog(message = '', uploadDevice = false) {
   const note = message ? '<p class="dialog-sub" role="status">'+esc(message)+'</p>' : '';
+  if (cloudSession && uploadDevice) {
+    const count = deviceDataKeys().length;
+    showDialog('Upload device data',note+(count
+      ? '<p class="dialog-sub">Copy '+count+' '+(count === 1 ? 'saved entry' : 'saved entries')+' from this device’s '+appName+
+        ' journal into your signed-in account. Your cloud journal keeps any entries it already has.</p>'+
+        '<button class="primary wide" data-action="cloud-copy-confirm">Upload saved entries</button>'
+      : '<p class="dialog-sub">There’s no earlier '+appName+' data saved in this browser to upload. New entries sync automatically while you’re signed in.</p>')+
+      '<button class="ghost wide" data-action="cloud">Back to cloud sync</button>');
+    return;
+  }
   if (cloudSession) {
     showDialog('Cloud sync', note+'<p class="dialog-sub">Changes to '+appName+
       ' sync automatically. Sign in to the same account on another device to open your journal.</p>'+
       '<p class="note" data-cloud-note role="status">'+esc(cloudMessage || cloudLabel())+'</p>'+
       '<button class="choice" data-action="cloud-retry">Sync now</button>'+
-      '<button class="choice" data-action="cloud-copy">Copy this device’s earlier logs</button>'+
+      '<button class="choice" data-action="cloud-copy">Upload device data</button>'+
       '<button class="choice" data-action="cloud-review">Review an older cloud backup</button>'+
       '<button class="ghost wide" data-action="cloud-sign-out">Sign out</button>');
     return;
   }
   const setup = !cloudProject && !cloudConfig;
-  showDialog('Cloud sync', note+
+  showDialog(uploadDevice ? 'Upload device data' : 'Cloud sync', note+
     '<p class="dialog-sub">'+(setup
       ? 'Connect an existing Bench training project to start syncing. Until then, entries are saved in this browser.'
-      : 'Sign in to open your private '+appName+' journal.')+'</p>'+
-    '<form id="cloud-form">'+(!cloudProject ?
+      : uploadDevice ? 'Sign in to choose where to upload this device’s '+appName+' data.' :
+      'Sign in to open your private '+appName+' journal. Use the same account on each device.')+'</p>'+
+    '<form id="cloud-form" data-upload-device="'+uploadDevice+'">'+(!cloudProject ?
     '<details class="cloud-setup"'+(setup?' open':'')+'><summary>Supabase project settings</summary>'+
     '<label class="field">Project URL<input name="endpoint" type="url" required value="'+esc(cloudConfig?.endpoint)+
     '" placeholder="https://your-project.supabase.co"></label><label class="field">Publishable key<input name="apiKey" required value="'+
@@ -124,15 +139,15 @@ async function cloudSignIn(form) {
   setCloudStatus('syncing');
   loadEntries();
   render();
-  cloudDialog();
+  cloudDialog('',form.dataset?.uploadDevice === 'true');
   await syncJournal();
 }
 
 // Persist the pending change before updating the on-device view. Null entries are deletions.
-function persistJournalRecord(k, encoded) {
+function persistJournalRecord(k, encoded, {onlyMissing = false} = {}) {
   const session = cloudSession;
   if (session) localStorage.setItem(outboxPrefix(session)+k,JSON.stringify({
-    id:window.crypto.randomUUID(),encoded
+    id:window.crypto.randomUUID(),encoded,onlyMissing
   }));
   if (encoded === null) localStorage.removeItem(journalPrefix()+k);
   else localStorage.setItem(journalPrefix()+k,encoded);
@@ -150,15 +165,19 @@ async function syncEntries(session) {
   // Flush writes first, then read the server's complete journal. Changes made during
   // the request stay queued and take priority over the incoming copy.
   const pending = storageKeys(outbox).map(k=>[k,localStorage.getItem(k)]).filter(([,v])=>v!==null);
-  for (let i=0;i<pending.length;i+=100) {
-    const rows = pending.slice(i,i+100).map(([k,value])=>{
-      const {encoded} = JSON.parse(value);
-      return {owner:session.owner,journal:cloudJournal,entry_key:k.slice(outbox.length),payload:JSON.parse(encoded)};
-    });
-    await cloudRequest(session,'/rest/v1/bench_sync_entries?on_conflict=owner,journal,entry_key',{
-      method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)
-    });
-    if (session !== cloudSession) return;
+  const changes = pending.map(([k,value])=>({key:k.slice(outbox.length),...JSON.parse(value)}));
+  for (const onlyMissing of [false,true]) {
+    const group = changes.filter(change=>Boolean(change.onlyMissing) === onlyMissing);
+    const resolution = onlyMissing ? 'ignore-duplicates' : 'merge-duplicates';
+    for (let i=0;i<group.length;i+=100) {
+      const rows = group.slice(i,i+100).map(({key,encoded})=>({
+        owner:session.owner,journal:cloudJournal,entry_key:key,payload:JSON.parse(encoded)
+      }));
+      await cloudRequest(session,'/rest/v1/bench_sync_entries?on_conflict=owner,journal,entry_key',{
+        method:'POST',headers:{Prefer:'resolution='+resolution+',return=minimal'},body:JSON.stringify(rows)
+      });
+      if (session !== cloudSession) return;
+    }
   }
 
   const remote = new Map();
@@ -215,6 +234,7 @@ function syncJournal() {
 }
 
 async function cloudAction(action) {
+  if (action === 'cloud-copy') {cloudDialog('',true);return;}
   if (!cloudSession) {cloudDialog();return;}
   if (action === 'cloud-sign-out') {
     if (unsaved.size) throw Error('Export the unsaved changes before signing out.');
@@ -232,27 +252,25 @@ async function cloudAction(action) {
     await syncJournal();
     return;
   }
-  if (action === 'cloud-copy') {
-    showDialog('Copy earlier logs?', '<p class="dialog-sub">Copy missing entries from this browser’s '+appName+
-      ' journal into your signed-in account. Existing account entries take priority.</p>'+
-      '<button class="primary wide" data-action="cloud-copy-confirm">Copy missing entries</button>'+
-      '<button class="ghost wide" data-action="cloud">Cancel</button>');
-    return;
-  }
   if (action === 'cloud-copy-confirm') {
+    const session = cloudSession;
     await syncJournal();
-    if (cloudStatus === 'error') throw Error('Connect to your cloud journal first, then try again.');
+    if (session !== cloudSession) return;
+    if (cloudStatus === 'error') {cloudDialog('Connect to your cloud journal first, then try again.',true);return;}
     let copied = 0;
     const scoped = journalPrefix();
-    for (const k of storageKeys(prefix)) {
+    for (const k of deviceDataKeys()) {
       const key = k.slice(prefix.length);
       if (localStorage.getItem(scoped+key)!==null) continue;
-      persistJournalRecord(key,localStorage.getItem(k));
+      const encoded = localStorage.getItem(k);
+      if (encoded === null) continue;
+      persistJournalRecord(key,encoded,{onlyMissing:true});
       copied++;
     }
     loadEntries();
     render();
-    cloudDialog(copied ? copied+' earlier entries queued for sync.' : 'There are no missing entries to copy.');
+    cloudDialog(copied ? copied+' earlier entries queued for upload.' : 'This account already has the device entries.');
+    if (copied) await syncJournal();
     return;
   }
   const [row] = await cloudRequest(cloudSession,'/rest/v1/bench_journals?journal=eq.'+cloudJournal+'&select=payload');
@@ -260,10 +278,10 @@ async function cloudAction(action) {
   await previewImport({size:0,text:async()=>JSON.stringify(row.payload)});
 }
 
-async function runCloud(action) {
+async function runCloud(action, uploadDevice = false) {
   if (typeof action !== 'function') action.disabled = true;
   try { await (typeof action === 'function' ? action() : cloudAction(action.dataset.action)); }
-  catch (error) {cloudDialog(error.message || 'The cloud request failed.');}
+  catch (error) {cloudDialog(error.message || 'The cloud request failed.',uploadDevice);}
   finally {if(typeof action !== 'function') action.disabled = false;}
 }
 

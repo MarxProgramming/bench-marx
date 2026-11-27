@@ -214,8 +214,9 @@ function recent() {
            '<p class="empty-copy">Save a weight, height or other result on your third tap.</p>')
 }
 function footer() {
-  return '<div class="page-end"><button class="inline sync-button" data-action="cloud">'+icon('disk')+
-      '<span data-cloud-label>'+esc(cloudLabel())+'</span></button><button data-action="data">Settings &amp; backups</button></div>'
+  return '<div class="page-end"><div class="device-cloud"><button class="inline sync-button" data-action="cloud-copy">'+
+      icon('disk')+'Upload device data</button><span class="fine" data-cloud-label role="status">'+esc(cloudLabel())+
+      '</span></div><button data-action="data">Settings &amp; backups</button></div>'
 }
 function workout() {
   const reminders=remindersFor(selected);

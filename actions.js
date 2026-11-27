@@ -327,6 +327,7 @@ document.addEventListener('click', event => {
   if (d.renameExercise) { addExerciseDialog(byId[d.renameExercise].gi,d.renameExercise); return; }
   if (d.weigh) { weightDialog(d.weigh); return; }
   if (d.addExercise !== undefined) { addExerciseDialog(groupRef(d.addExercise)); return; }
+  if (d.repeatFood && isDan) {repeatPreviousFood(d.repeatFood);return;}
   if (d.foodDay && isDan) { calorieDialog(d.foodDay, d.foodId,d.copyFood); return; }
   if (d.removeDaily) { removeDaily(d.removeDaily); return; }
   if(d.untick){if(entries.has(key(selected,d.untick)))change(selected,d.untick,null);return;}
@@ -535,7 +536,7 @@ document.addEventListener('submit', e => {
     const submit = e.submitter;
     if (submit?.disabled) return;
     if (submit) submit.disabled = true;
-    runCloud(()=>cloudSignIn(e.target)).finally(()=>{if(submit) submit.disabled = false;});
+    runCloud(()=>cloudSignIn(e.target),e.target.dataset?.uploadDevice === 'true').finally(()=>{if(submit) submit.disabled = false;});
   }
   if (e.target.id === 'pr-form') {
     e.preventDefault();
