@@ -190,7 +190,7 @@ function dateDialog() {
 function dataDialog() {
   showDialog(
       'Preferences &amp; backups',
-      preferenceControls()+'<button class="choice" data-action="cloud">'+icon('disk')+'Cloud sync<small>'+esc(cloudLabel())+'</small></button><p class="dialog-sub">'+(cloudSession ? 'Export a copy of your journal at any time.' : 'Your journal is saved in this browser. Sign in to a connected project to sync across devices.')+'</p><button class="choice" data-action="export">' +
+      preferenceControls()+'<button class="choice" data-action="cloud">'+icon('disk')+'Cloud sync<small>'+esc(cloudLabel())+'</small></button><p class="dialog-sub">'+(cloudSession ? 'Export a copy of your journal at any time.' : 'Changes sync automatically when the app connects to the public journal.')+'</p><button class="choice" data-action="export">' +
           icon('download') + 'Export backup</button><button class="choice" data-action="import">' +
           icon('history') +
           'Import backup</button><input class="file-input" id="import-file" type="file" accept=".json,application/json"><p class="note">' +
@@ -258,7 +258,7 @@ async function previewImport(file) {
         'Import backup',
         '<p class="dialog-sub">' + pendingImport.length + ' new log entries can be added. ' +
             (incoming.size + incomingDaily.size - pendingImport.length) +
-            ' existing entries will be kept as they are.</p><div class="dialog-actions"><button class="ghost" data-action="close">Cancel</button><button class="primary" data-action="merge" ' +
+            ' existing entries will be kept as they are.'+(cloudSession ? ' Imported entries will be visible in the public journal.' : '')+'</p><div class="dialog-actions"><button class="ghost" data-action="close">Cancel</button><button class="primary" data-action="merge" ' +
             (!pendingImport.length ? 'disabled' : '') + '>Import logs</button></div>');
   } catch (err) {
     showDialog(
@@ -439,11 +439,10 @@ document.addEventListener('click', event => {
     }
     case 'archived-exercises':archivedExercises();break;
     case 'cloud':cloudDialog();break;
-    case 'cloud-review':
     case 'cloud-retry':
     case 'cloud-copy':
     case 'cloud-copy-confirm':
-    case 'cloud-sign-out':runCloud(el);break;
+    case 'cloud-legacy':runCloud(el);break;
     case 'review-reset':reviewReset();break;
     case 'confirm-reset':resetJournal();break;
     case 'restore-list':recoveryList();break;
@@ -536,7 +535,7 @@ document.addEventListener('submit', e => {
     const submit = e.submitter;
     if (submit?.disabled) return;
     if (submit) submit.disabled = true;
-    runCloud(()=>cloudSignIn(e.target),e.target.dataset?.uploadDevice === 'true').finally(()=>{if(submit) submit.disabled = false;});
+    runCloud(()=>cloudSignIn(e.target)).finally(()=>{if(submit) submit.disabled = false;});
   }
   if (e.target.id === 'pr-form') {
     e.preventDefault();

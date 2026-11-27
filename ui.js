@@ -449,7 +449,7 @@ function render(animate=false) {
       appName + ' · ' + ({calories:'Calories',workout: 'Workout log', gymnastics:'Gymnastics log', history: 'History', insights: 'Insights'}[view]);
   main.innerHTML =
       (storageIssue ? '<div role="alert" class="warning">' + esc(storageIssue) + '</div>' : '') +
-      ({workout, gymnastics, calories, history:historyScreen, insights}[view])() + footer();
+      deviceMigrationNotice()+({workout, gymnastics, calories, history:historyScreen, insights}[view])() + footer();
   if (view === 'workout') paintWave();
   if(animate)enterScreen();
 }
