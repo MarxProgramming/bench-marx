@@ -4,26 +4,18 @@ env.allowLocalModels = false;
 env.backends.onnx.wasm.numThreads = 1;
 
 const models = {
-  ingredients: {name:'onnx-community/mobilenet_v2_1.0_224', dtype:'q8', revision:'c5903ea'},
-  dishes: {name:'onnx-community/swin-finetuned-food101-ONNX', dtype:'q4', revision:'e5e50bf'}
+  ingredients: {name:'Xenova/yolos-tiny', task:'object-detection', dtype:'q8', revision:'e2f9c76'},
+  dishes: {name:'onnx-community/swin-finetuned-food101-ONNX', task:'image-classification', dtype:'q4', revision:'e5e50bf'}
 };
 let loadedModel;
 let classifier;
 
-// ImageNet contains both food and household objects. Only recognised food labels become suggestions.
-const ingredientNames = new Map(Object.entries({
-  'granny smith':'Apple', banana:'Banana', orange:'Orange', lemon:'Lemon', fig:'Fig',
-  pineapple:'Pineapple', strawberry:'Strawberry', pomegranate:'Pomegranate',
-  cucumber:'Cucumber', zucchini:'Courgette', broccoli:'Broccoli', cauliflower:'Cauliflower',
-  'bell pepper':'Pepper', mushroom:'Mushroom', artichoke:'Artichoke', 'head cabbage':'Cabbage',
-  'butternut squash':'Butternut squash', 'acorn squash':'Acorn squash', 'spaghetti squash':'Spaghetti squash',
-  'ear, spike, capitulum':'Corn on the cob', 'corn':'Corn', 'mashed potato':'Mashed potato',
-  'french loaf':'Bread', bagel:'Bagel', pretzel:'Pretzel', 'cheeseburger':'Cheeseburger',
-  'hotdog, hot dog, red hot':'Hot dog', 'pizza, pizza pie':'Pizza', 'burrito':'Burrito',
-  guacamole:'Guacamole', 'ice cream, icecream':'Ice cream', 'ice lolly, lolly, lollipop, popsicle':'Ice lolly',
-  'chocolate sauce, chocolate syrup':'Chocolate sauce', 'espresso':'Espresso', 'eggnog':'Eggnog',
-  'dough':'Dough', 'trifle':'Trifle'
+// Filter COCO objects such as plates, furniture and cutlery out of the results.
+const foodNames = new Map(Object.entries({
+  banana:'Banana', apple:'Apple', sandwich:'Sandwich', orange:'Orange', broccoli:'Broccoli',
+  carrot:'Carrot', 'hot dog':'Hot dog', pizza:'Pizza', donut:'Doughnut', cake:'Cake'
 }));
+const produce = new Set(['Banana','Apple','Orange','Carrot','Broccoli']);
 
 async function modelFor(mode) {
   if (loadedModel === mode && classifier) return classifier;
@@ -31,8 +23,8 @@ async function modelFor(mode) {
     await classifier.dispose();
     classifier = null;
   }
-  const {name,...options} = models[mode];
-  classifier = await pipeline('image-classification',name,{
+  const {name,task,...options} = models[mode];
+  classifier = await pipeline(task,name,{
     ...options,device:'wasm',
     progress_callback:progress=>{
       if (progress.status==='progress' && progress.file?.endsWith('.onnx')) {
@@ -45,12 +37,14 @@ async function modelFor(mode) {
 }
 
 function ingredientMatches(predictions) {
-  const best=predictions[0];
-  const known=label=>ingredientNames.get(label.toLowerCase()) ??
-    ingredientNames.get(label.split(',')[0].toLowerCase());
-  if (!best || best.score<.35 || !known(best.label)) return [];
-  return predictions.filter(p=>p.score>=.16 && known(p.label))
-    .map(p=>({label:known(p.label), score:p.score}));
+  const matches=new Map();
+  for (const item of predictions) {
+    const label=foodNames.get(item.label.toLowerCase());
+    if (label && item.score >= .46 && item.score > (matches.get(label)?.score ?? 0)) {
+      matches.set(label,{label,score:item.score});
+    }
+  }
+  return [...matches.values()].sort((a,b)=>b.score-a.score).slice(0,3);
 }
 
 self.onmessage = async ({data:{file,mode='ingredients'}}) => {
@@ -59,11 +53,12 @@ self.onmessage = async ({data:{file,mode='ingredients'}}) => {
   try {
     const recognise=await modelFor(mode);
     self.postMessage({looking:true});
-    const predictions=await recognise(url,{topk:3});
+    const predictions=await recognise(url,mode==='ingredients' ? {threshold:.46} : {topk:3});
     const results=mode==='ingredients' ? ingredientMatches(predictions) :
       predictions.filter(r=>r.score>=.52);
-    self.postMessage({results, mode, strong:mode==='ingredients' && results[0]?.score>=.8 &&
-      predictions[0].score-(predictions[1]?.score || 0)>=.35});
+    self.postMessage({results, mode,
+      strong:mode==='ingredients' && results.length===1 && results[0].score>=.55,
+      dishOption:mode==='ingredients' && (results.length!==1 || !produce.has(results[0].label))});
   } catch {
     self.postMessage({failed:true});
   } finally {

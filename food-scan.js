@@ -62,7 +62,7 @@ const standardPortions = {
 };
 
 function runMealScan(image, task, mode='ingredients') {
-  const worker = foodWorker ||= new Worker('./food-photo-worker.js?v=4.4',{type:'module'});
+  const worker = foodWorker ||= new Worker('./food-photo-worker.js?v=4.5',{type:'module'});
   task.cancel = () => {worker.terminate();foodWorker=null;};
   worker.onerror = () => scanFailed(task);
   worker.onmessage = ({data}) => {
@@ -83,7 +83,7 @@ function runMealScan(image, task, mode='ingredients') {
     if (data.strong && choices.length===1 && !task.form.elements.name.value.trim()) {
       useScanChoice(0,false);
     }
-    if (mode==='ingredients' && !data.strong) {
+    if (data.dishOption) {
       task.results.insertAdjacentHTML('afterend','<button class="scan-file dish-scan" type="button" data-dish-scan="true">Check for a prepared dish</button>');
     }
   };

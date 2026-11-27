@@ -1811,8 +1811,8 @@ button:focus-visible,summary:focus-visible,select:focus-visible{outline:2px soli
 @media(max-width:370px){.analysis-tabs button{font-size:.82rem}.weekcol{min-width:0}.gym-segs b{width:3px}.rep-strip{gap:5px}.legend{flex-wrap:wrap}}
 
 /* The display stack uses native condensed type where available; Rubik travels with the journal. */
-@font-face{font-family:Rubik;src:url("./rubik-regular.ttf?v=4.4") format("truetype");font-weight:400 550;font-style:normal;font-display:swap}
-@font-face{font-family:Rubik;src:url("./rubik-bold.ttf?v=4.4") format("truetype");font-weight:600 900;font-style:normal;font-display:swap}
+@font-face{font-family:Rubik;src:url("./rubik-regular.ttf?v=4.5") format("truetype");font-weight:400 550;font-style:normal;font-display:swap}
+@font-face{font-family:Rubik;src:url("./rubik-bold.ttf?v=4.5") format("truetype");font-weight:600 900;font-style:normal;font-display:swap}
 :root{
   --bg:#080f18;--panel:#102031;--panel2:#172b40;--line:#2c4359;--soft:#203447;--white:#eef6ff;--muted:#b2c3d4;--dim:#8ea5bb;
   --purple:#70c3ff;--violet:#81c8f5;--mint:#83d7ff;--aqua:#a6deff;--orange:#ffae6e;--green:#7de4b0;--red:#ff8b95;
@@ -1832,7 +1832,7 @@ h2{font-family:Rubik,sans-serif;font-weight:600;letter-spacing:-.035em}h3,.hero-
 .card,.weekly.card{background:linear-gradient(135deg,#1d3446e3 0%,#142637e8 40%,#101d2bea 100%);border:1px solid #82b4d033;box-shadow:0 16px 42px -11px #01050cd9,0 4px 13px #02081063,inset 0 1px #c6e9ff0b;backdrop-filter:blur(12px)}
 .hero.card,.hero.gym-hero.card{background:radial-gradient(ellipse at 99% 120%,#e9975227,transparent 49%),radial-gradient(ellipse at 81% 16%,#227fb944,transparent 60%),linear-gradient(123deg,#17374eec,#102a42ef 50%,#1b3952eb);border-color:#42719691}
 .hero:before{opacity:.15}.hero-label,.gym-hero .hero-label{color:#c4e7fb}.hero .pct,.gym-hero .pct{color:#c0dff2}
-.nav-emblem{display:inline-block;flex:0 0 auto;width:29px;height:29px;background:url("./emblems.webp?v=4.4") 0 50% / 400% 100% no-repeat;filter:saturate(.57) brightness(.90);opacity:.85}
+.nav-emblem{display:inline-block;flex:0 0 auto;width:29px;height:29px;background:url("./emblems.webp?v=4.5") 0 50% / 400% 100% no-repeat;filter:saturate(.57) brightness(.90);opacity:.85}
 .emblem-gymnastics{background-position-x:33.333333%}.emblem-insights{background-position-x:66.666667%}.emblem-history{background-position-x:100%}
 .nav-item{gap:8px;padding:7px 13px;color:#b5c8d8}.nav-item[aria-current=page]{background:linear-gradient(130deg,#21445d,#172f46);box-shadow:inset 0 0 0 1px #71b4e32f;color:#eaf7ff}
 .nav-item[aria-current=page] .nav-emblem{filter:saturate(.78) brightness(1.15);opacity:1}
