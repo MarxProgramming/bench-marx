@@ -36,4 +36,4 @@ Use **Add category** below the workout list. Use **Rename** beside a category to
 
 ### Training reminders
 
-The workout list highlights exercises after three days and two missed workouts, after seven days since the last mark, or after three logged workouts if an exercise has never been marked. Both apps flag two consecutive Heavy or PR days on the same exercise and ask you to confirm before logging a third. Bench Marx also shows previously heavy exercises with a gap of at least 14 days. Open **Needs attention** for the flagged exercises or switch off **Training reminders** in Settings. Insights opens with a seven-day view.
+The workout list highlights exercises after three days and two missed workouts, after seven days since the last mark, or after three workouts in its own category if an exercise has never been marked. Both apps flag two consecutive Heavy or PR days on the same exercise and ask you to confirm before logging a third. Bench Marx also shows previously heavy exercises with a gap of at least 14 days. Open **Needs attention** for the flagged exercises or switch off **Training reminders** in Settings. Insights opens with a seven-day view.

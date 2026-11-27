@@ -62,7 +62,7 @@ const standardPortions = {
 };
 
 function runMealScan(image, task, mode='ingredients') {
-  const worker = foodWorker ||= new Worker('./food-photo-worker.js?v=4.6',{type:'module'});
+  const worker = foodWorker ||= new Worker('./food-photo-worker.js?v=4.7',{type:'module'});
   task.cancel = () => {worker.terminate();foodWorker=null;};
   worker.onerror = () => scanFailed(task);
   worker.onmessage = ({data}) => {

@@ -1,6 +1,6 @@
 // Install the whole release before it becomes eligible to serve offline.
 const root = self.registration.scope;
-const release = '4.6';
+const release = '4.7';
 const prefix = 'bench-marx:' + root + ':';
 const cacheName = prefix + release;
 const entry = new URL('index.html', root).href;

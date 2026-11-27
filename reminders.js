@@ -21,16 +21,21 @@ function heavyRun(id,ending) {
 }
 
 function reminderHistory(day) {
-  const records=new Map(), trainingDays=new Set();
+  const records=new Map(), trainingDays=new Set(), daysByCategory=new Map();
   for(const record of entries.values()) {
     if(record.day>day || isGym(record) || byId[record.id].retired) continue;
-    if(record.day<day && activeWorkout(record)) trainingDays.add(record.day);
+    if(record.day<day && activeWorkout(record)) {
+      trainingDays.add(record.day);
+      const group=byId[record.id].gi;
+      if (!daysByCategory.has(group)) daysByCategory.set(group,new Set());
+      daysByCategory.get(group).add(record.day);
+    }
     const latest=records.get(record.id) || {};
     if(!latest.last || latest.last<record.day) latest.last=record.day;
     if(isHeavy(record) && (!latest.heavy || latest.heavy<record.day)) latest.heavy=record.day;
     records.set(record.id,latest);
   }
-  return {records,trainingDays:[...trainingDays]};
+  return {records,trainingDays:[...trainingDays],daysByCategory};
 }
 
 function exerciseReminder(exercise,day,history) {
@@ -53,8 +58,12 @@ function exerciseReminder(exercise,day,history) {
       const label='Last done '+days+' days ago'+(heavyGap ? ' · Heavy '+heavyDays+' days ago' : '');
       return {kind:'due',label,detail:'Last workout mark on '+dateLabel(last)+'.'+(heavyGap ? ' Last Heavy or PR on '+dateLabel(heavy)+'.' : '')};
     }
-    if(!last && missed>=reminderRules.neverLoggedWorkouts) {
-      return {kind:'due',label:'Missed '+missed+' workouts',detail:'This exercise was available in '+missed+' earlier logged workouts and has no marks yet.'};
+    if(!last) {
+      const categoryDays=[...(history.daysByCategory.get(exercise.gi) || [])]
+        .filter(date=>exerciseOn(exercise,date)).length;
+      if(categoryDays>=reminderRules.neverLoggedWorkouts) {
+        return {kind:'due',label:'Missed '+categoryDays+' workouts',detail:'This exercise has no marks after '+categoryDays+' workouts in its category.'};
+      }
     }
   }
   if (heavyGap) {
@@ -90,7 +99,7 @@ function attentionControls(reminders) {
 function attentionHelp() {
   const heavyGap = isDan ? '' : '<li><strong>Last heavy.</strong> At least 14 days since a Heavy or PR mark on an exercise you’ve previously logged at that level.</li>';
   showDialog('Training reminders','<ul class="reminder-rules">'+
-    '<li><strong>Needs attention.</strong> An exercise is highlighted after three days and two missed workouts, after seven days since the last mark, or after three earlier workouts if it has never been logged.</li>'+
+    '<li><strong>Needs attention.</strong> An exercise is highlighted after three days and two missed workouts, after seven days since the last mark, or after three workouts in its category if it has never been logged.</li>'+
     heavyGap+'<li><strong>Skip heavy today.</strong> Heavy and PR both count. After two consecutive heavy days on the same exercise, you’ll see a reminder to take a lighter day.</li>'+
     '</ul><button class="primary wide" data-action="close">Done</button>');
 }
