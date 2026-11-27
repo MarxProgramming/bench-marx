@@ -1,15 +1,22 @@
 const daily = new Map();
+const categoryPattern = /^category_[a-z0-9]{8,40}$/;
 const customPattern = /^custom_[a-z0-9]{8,40}$/;
 const foodPattern = /^food_[a-z0-9]{8,40}$/;
 
 function cleanDaily(item) {
   if (!item) return null;
-  if (item.type === 'exercise') {
+  if (item.type === 'exercise' || item.type === 'category') {
     const name = typeof item.name === 'string' ? item.name.trim() : '';
-    return customPattern.test(item.id) && Number.isInteger(item.group) && groups[item.group] &&
-      name && name.length <= 80 && validDay(item.created)
-      ? {type:'exercise', id:item.id, name, group:item.group, created:item.created,
-         ...(validDay(item.archived) && item.archived >= item.created ? {archived:item.archived} : {})} : null;
+    const isCategory = item.type === 'category';
+    const original = baseExercises.find(e=>e.id===item.id);
+    const groupValid = baseGroups.some(g=>g.ref===item.group) || categoryPattern.test(item.group);
+    const validId = isCategory
+      ? categoryPattern.test(item.id) || baseGroups.some(g=>item.id==='station_'+g.ref)
+      : original ? item.group===original.gi : customPattern.test(item.id) && groupValid;
+    if (!validId || !name || name.length > (isCategory?50:80) || !validDay(item.created)) return null;
+    const dates = {created:item.created};
+    if (validDay(item.archived) && item.archived >= item.created) dates.archived = item.archived;
+    return {type:item.type,id:item.id,name,...dates,...(isCategory?{}:{group:item.group})};
   }
   if (!validDay(item.day)) return null;
   if (item.type === 'weight' && item.id === 'weight' && Number.isFinite(item.kg) &&
@@ -25,17 +32,28 @@ function cleanDaily(item) {
 }
 
 function dailyKey(item) {
-  return key(item.type === 'exercise' ? 'catalogue' : item.day, item.id);
+  return key(['exercise','category'].includes(item.type) ? 'catalogue' : item.day, item.id);
 }
 
 function rebuildCatalogue() {
-  for (const exercise of exercises.splice(baseExerciseCount)) delete byId[exercise.id];
+  for (const exercise of exercises) delete byId[exercise.id];
+  groups.splice(0,groups.length,...baseGroups);
+  exercises.splice(0,exercises.length,...baseExercises);
   for (const item of daily.values()) {
-    if (item.type !== 'exercise') continue;
-    const exercise = {id:item.id, name:item.name, gi:item.group, created:item.created, archived:item.archived};
-    exercises.push(exercise);
-    byId[item.id] = exercise;
+    if (item.type !== 'category') continue;
+    const existing = item.id.startsWith('station_') ? baseGroups.find(g=>item.id==='station_'+g.ref) : null;
+    const group = {...existing,...item,ref:existing?.ref ?? item.id, short:item.name, colour:existing?.colour || '#82cce9'};
+    if (existing) groups[existing.ref]=group;
+    else groups.push(group);
   }
+  for (const item of daily.values()) {
+    if (item.type !== 'exercise' || !groupOf(item.group)) continue;
+    const i = exercises.findIndex(e=>e.id===item.id);
+    const exercise = {...exercises[i], id:item.id, name:item.name, gi:item.group, created:item.created, archived:item.archived};
+    if (i<0) exercises.push(exercise);
+    else exercises[i]=exercise;
+  }
+  for (const exercise of exercises) byId[exercise.id]=exercise;
 }
 
 function weightButton(day) {
@@ -56,9 +74,10 @@ function weightDialog(day) {
 }
 
 function addExerciseDialog(group, id) {
-  if (!groups[group]) return;
+  const station=groupOf(group);
+  if (!station) return;
   const existing = id ? byId[id] : null;
-  showDialog(existing ? 'Rename exercise' : 'Add exercise', '<p class="dialog-sub">'+groups[group].name+
+  showDialog(existing ? 'Rename exercise' : 'Add exercise', '<p class="dialog-sub">'+esc(station.name)+
     '</p><form id="exercise-form"><label class="field">Exercise name<input name="name" maxlength="80" required value="'+esc(existing?.name)+'"></label>'+
     '<div class="dialog-actions"><button class="primary">'+(existing ? 'Save name' : 'Add exercise')+'</button></div></form>', {group,id});
 }
@@ -82,11 +101,12 @@ function recentFoods() {
 }
 
 function calorieDialog(day, id, copyKey) {
+  if (typeof stopFoodScan === 'function') stopFoodScan();
   const old = id ? daily.get(key(day,id)) : null;
   const source = old || (copyKey ? daily.get(copyKey) : null);
   const suggestions = old ? '' : recentFoods().map(r => '<option value="'+esc(r.name)+'"></option>').join('');
   showDialog(old ? 'Edit food' : 'Add food', '<p class="dialog-sub">'+dateLabel(day)+
-    '</p><form id="food-form"><label class="field">Food or drink<input name="name" maxlength="80" required list="recent-food" value="'+
+    '</p><form id="food-form">'+(!old && typeof foodScanControls === 'function' ? foodScanControls() : '')+'<label class="field">Food or drink<input name="name" maxlength="80" required list="recent-food" value="'+
     esc(source?.name)+'"></label><datalist id="recent-food">'+suggestions+'</datalist><label class="field">Calories (kcal)<input name="kcal" type="number" min="0" max="20000" step="1" inputmode="numeric" required value="'+
     (source?.kcal ?? '')+'"></label><div class="dialog-actions">'+
     (old ? '<button type="button" class="ghost" data-remove-daily="'+dailyKey(old)+'">Remove</button>' : '')+
@@ -153,7 +173,7 @@ function weightInsights() {
 
 function saveDailyForm(event) {
   const form = event.target;
-  if (!['exercise-form','weight-form','food-form'].includes(form.id)) return;
+  if (!['exercise-form','category-form','weight-form','food-form'].includes(form.id)) return;
   event.preventDefault();
   const data = new FormData(form);
   const {day, group, id} = modalInfo;
@@ -164,7 +184,16 @@ function saveDailyForm(event) {
       notify('That exercise already exists in this group.');
       return;
     }
-    item = {type:'exercise',id:id || localId('custom_'),group,name,created:byId[id]?.created || selected,archived:byId[id]?.archived};
+    item = {type:'exercise',id:id || localId('custom_'),group,name,created:byId[id]?.created || (id ? '1900-01-01' : selected),archived:byId[id]?.archived};
+  } else if (form.id === 'category-form') {
+    const name=data.get('name').trim();
+    const current=groupOf(group);
+    if (groups.some(g => g.ref!==group && g.name.toLowerCase()===name.toLowerCase())) {
+      notify('That category name already exists.');
+      return;
+    }
+    item={type:'category',id:current ? categoryId(current) : localId('category_'),
+      name,created:current?.created || (current ? '1900-01-01' : selected),archived:current?.archived};
   } else if (form.id === 'weight-form') {
     item = {type:'weight',id:'weight',day,kg:Number(data.get('kg'))};
   } else {
@@ -173,16 +202,16 @@ function saveDailyForm(event) {
   const record = cleanDaily(item);
   if (!record) { notify('Check the details and try again.'); return; }
   writeJournal(dailyKey(record), record, daily);
-  if (record.type === 'exercise') rebuildCatalogue();
+  if (['exercise','category'].includes(record.type)) rebuildCatalogue();
   closeDialog();
   render();
-  notify(storageIssue || {weight:'Weight saved', exercise:'Exercise added', food:'Food saved'}[record.type]);
+  notify(storageIssue || {weight:'Weight saved', exercise:id ? 'Exercise updated' : 'Exercise added', category:'Category saved', food:'Food saved'}[record.type]);
   if (record.type === 'exercise') document.querySelector('[data-log="'+record.id+'"]')?.focus({preventScroll:true});
 }
 
 function removeDaily(id) {
   const old = daily.get(id);
-  if (!old || old.type === 'exercise') return;
+  if (!old || !['weight','food'].includes(old.type)) return;
   writeJournal(id,null,daily);
   closeDialog();
   render();
@@ -195,23 +224,65 @@ function removeDaily(id) {
 }
 
 
+function categoryId(group) {
+  return group.id || 'station_'+group.ref;
+}
+
+function categoryDialog(ref) {
+  const group=groupOf(ref);
+  showDialog(group?'Edit category':'Add category',
+    '<form id="category-form"><label class="field">Category name<input name="name" maxlength="50" required value="'+esc(group?.name)+
+    '"></label><div class="dialog-actions">'+(group?'<button class="ghost" type="button" data-remove-category="'+group.ref+'">Remove category</button>':'')+
+    '<button class="primary">Save category</button></div></form>',{group:ref});
+}
+
+function reviewExerciseRemoval(id) {
+  const exercise=byId[id];
+  if (!exercise || exercise.skill || exercise.retired) return;
+  showDialog('Remove '+esc(exercise.name)+'?', '<p class="dialog-sub">This exercise will leave your workout list. Past logs stay in History.</p>'+
+    '<div class="dialog-actions"><button class="ghost" data-initial data-action="close">Keep exercise</button>'+
+    '<button class="primary" data-confirm-exercise="'+id+'">Remove exercise</button></div>');
+}
+
+function reviewCategoryRemoval(ref) {
+  const group=groupOf(ref);
+  if (!group) return;
+  showDialog('Remove '+esc(group.name)+'?', '<p class="dialog-sub">The category and its exercises will leave your workout list. Past logs stay in History.</p>'+
+    '<div class="dialog-actions"><button class="ghost" data-initial data-action="close">Keep category</button>'+
+    '<button class="primary" data-confirm-category="'+ref+'">Remove category</button></div>');
+}
+
 function archivedExercises() {
-  const archived=exercises.filter(e=>e.archived);
-  const choices=archived.map(e=>'<button class="choice" data-restore-exercise="'+e.id+'">'+esc(e.name)+
-    '<small>Restore</small></button>').join('');
-  showDialog('Archived exercises',choices || blank('No custom exercises have been archived.'));
+  const choices = [...groups.filter(g=>g.archived).map(g=>'<button class="choice" data-restore-category="'+g.ref+'">'+esc(g.name)+
+    '<small>Restore category</small></button>'),
+    ...exercises.filter(e=>e.archived).map(e=>'<button class="choice" data-restore-exercise="'+e.id+'">'+esc(e.name)+
+    '<small>Restore exercise</small></button>')].join('');
+  showDialog('Removed categories and exercises',choices || blank('Your removed items will appear here.'));
 }
 
 function setExerciseArchived(id, archive) {
-  const item=daily.get(key('catalogue',id));
-  if (!item) return;
+  const exercise=byId[id];
+  if (!exercise || exercise.skill || exercise.retired) return;
+  const old=daily.get(key('catalogue',id));
+  setCatalogueStatus(old || {type:'exercise',id,group:exercise.gi,name:exercise.name,created:'1900-01-01'},archive);
+}
+
+function setCategoryArchived(ref,archive) {
+  const group=groupOf(ref);
+  if (!group) return;
+  const id=categoryId(group);
+  const old=daily.get(key('catalogue',id));
+  setCatalogueStatus(old || {type:'category',id,name:group.name,created:'1900-01-01'},archive);
+}
+
+function setCatalogueStatus(item,archive) {
   const next={...item};
-  if (archive) next.archived = today < next.created ? next.created : today;
+  if (archive) next.archived = selected < next.created ? next.created : selected;
   else delete next.archived;
   writeJournal(dailyKey(next),next,daily);
   rebuildCatalogue();
-  if (view==='insights' && !exercisesAt(today).some(e=>e.id===selectedExercise)) selectedExercise=exercises[0].id;
+  if (filter!==-1 && !groupsAt(selected).some(g=>g.ref===filter)) filter=-1;
   closeDialog();
   render();
-  notify(storageIssue || (archive ? 'Exercise archived. Its history is kept.' : 'Exercise restored.'));
+  notify(storageIssue || (archive ? 'Removed from the workout list. Your history is kept.' : 'Restored to the workout list.'));
 }

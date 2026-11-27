@@ -60,7 +60,7 @@ function refreshLog(day, id) {
   document.querySelectorAll('.segs b').forEach((el, i) => el.classList.toggle('on', i < n));
   paintWave();
   document.querySelectorAll('[data-groupcount]').forEach(c => {
-    const i = Number(c.dataset.groupcount);
+    const i = groupRef(c.dataset.groupcount);
     c.textContent = rs.filter(r => byId[r.id].gi === i).length + ' / ' + exercisesAt(selected).filter(e => e.gi === i).length
   });
   document.querySelector('#week').innerHTML = week();
@@ -68,6 +68,7 @@ function refreshLog(day, id) {
   document.querySelector('#recent').innerHTML = recent()
 }
 function showDialog(title, body, info = {}, mark = '') {
+  if (typeof stopFoodScan === 'function') stopFoodScan();
   if (!modal.open) returnFocus = document.activeElement;
   modalInfo = info;
   document.querySelector('#dialog-body').innerHTML = mark +
@@ -83,6 +84,7 @@ function closeDialog() {
   pendingImport = null
 }
 modal.addEventListener('close', () => {
+  if (typeof stopFoodScan === 'function') stopFoodScan();
   modalInfo = null;
   pendingImport = null;
   if (returnFocus?.isConnected) returnFocus.focus({preventScroll: true});
@@ -99,7 +101,7 @@ function options(day, id) {
                   (l, i) => '<button class="choice ' + colours[i] + '" data-set="' + i + '">' +
                       icon(['close', 'check', 'heavy', 'trophy'][i]) + l +
                       ((r?.level || 0) === i ? '<small>Current</small>' : '') + '</button>')
-              .join('') + (byId[id].created ? '<button class="ghost wide" data-rename-exercise="'+id+'">Rename exercise</button><button class="ghost wide" data-archive-exercise="'+id+'">Archive exercise</button>' : ''),
+              .join('') + ('<button class="ghost wide" data-rename-exercise="'+id+'">Rename exercise</button><button class="ghost wide" data-archive-exercise="'+id+'">Remove exercise</button>'),
       {day, id})
 }
 function prForm(day, id) {
@@ -168,7 +170,7 @@ function dataDialog() {
           icon('history') +
           'Import backup</button><input class="file-input" id="import-file" type="file" accept=".json,application/json"><p class="note">' +
           entrySummary()+'</p><button class="choice" data-action="cloud">Supabase backup</button>'+
-          (exercises.some(e=>e.archived) ? '<button class="choice" data-action="archived-exercises">Archived exercises</button>' : '')+resetActions())
+          (groups.some(g=>g.archived) || exercises.some(e=>e.archived) ? '<button class="choice" data-action="archived-exercises">Removed categories and exercises</button>' : '')+resetActions())
 }
 function backupPayload() {
   return {
@@ -208,6 +210,13 @@ async function previewImport(file) {
         throw Error('The backup contains an invalid or duplicate daily entry.');
       incomingDaily.set(dailyKey(record),record);
       if (record.type === 'exercise') catalogue[record.id] = record;
+    }
+    const stations=new Set(groups.map(g=>g.ref));
+    for (const item of incomingDaily.values()) {
+      if (item.type==='category' && categoryPattern.test(item.id)) stations.add(item.id);
+    }
+    for (const item of incomingDaily.values()) {
+      if (item.type==='exercise' && !stations.has(item.group)) throw Error('An exercise is missing its category.');
     }
     const incoming = new Map();
     for (const item of data.entries) {
@@ -260,7 +269,7 @@ function help() {
                   (t, i) => '<div class="help-row ' + colours[i + 1] + '"><i class="dot"></i><span>' + t +
                       '</span></div>')
               .join('') +
-          '<p class="note">Each ridge on the session wave represents one exercise. It lifts and changes colour when you log it.</p><p class="note">Use Untick beside a logged exercise to clear it. Use Undo after a tap, or choose Edit above the exercise list to change an earlier entry. Tap a saved PR to edit it. A new log opens each day, and past workouts stay in History.</p><button class="primary wide" data-action="close">Got it</button>')
+          '<p class="note">Each ridge on the session wave represents one exercise. It lifts and changes colour when you log it.</p><p class="note">Swipe left on an exercise to remove it. You can also use Edit. Use Untick to clear a mark. Use Undo after a tap, or choose Edit above the exercise list to change an earlier entry. Tap a saved PR to edit it. A new log opens each day, and past workouts stay in History.</p><button class="primary wide" data-action="close">Got it</button>')
 }
 function rollover() {
   const now = iso();
@@ -278,11 +287,18 @@ document.addEventListener('click', event => {
   const el = event.target.closest('button');
   if (!el || el.disabled) return;
   const d = el.dataset;
-  if (d.archiveExercise) { setExerciseArchived(d.archiveExercise,true); return; }
+  if (d.scanPick) { document.querySelector('#scan-'+d.scanPick)?.click(); return; }
+  if (d.scanUse !== undefined) { useScanChoice(Number(d.scanUse)); return; }
+  if (d.archiveExercise) { reviewExerciseRemoval(d.archiveExercise); return; }
+  if (d.confirmExercise) { setExerciseArchived(d.confirmExercise,true); return; }
+  if (d.editCategory !== undefined) { categoryDialog(groupRef(d.editCategory)); return; }
+  if (d.removeCategory !== undefined) { reviewCategoryRemoval(groupRef(d.removeCategory)); return; }
+  if (d.confirmCategory !== undefined) { setCategoryArchived(groupRef(d.confirmCategory),true); return; }
+  if (d.restoreCategory !== undefined) { setCategoryArchived(groupRef(d.restoreCategory),false); return; }
   if (d.restoreExercise) { setExerciseArchived(d.restoreExercise,false); return; }
   if (d.renameExercise) { addExerciseDialog(byId[d.renameExercise].gi,d.renameExercise); return; }
   if (d.weigh) { weightDialog(d.weigh); return; }
-  if (d.addExercise !== undefined) { addExerciseDialog(Number(d.addExercise)); return; }
+  if (d.addExercise !== undefined) { addExerciseDialog(groupRef(d.addExercise)); return; }
   if (d.foodDay && isDan) { calorieDialog(d.foodDay, d.foodId,d.copyFood); return; }
   if (d.removeDaily) { removeDaily(d.removeDaily); return; }
   if(d.untick){if(entries.has(key(selected,d.untick)))change(selected,d.untick,null);return;}
@@ -348,9 +364,9 @@ document.addEventListener('click', event => {
     return
   }
   if (d.filter !== undefined) {
-    filter = Number(d.filter);
+    filter = d.filter === '-1' ? -1 : groupRef(d.filter);
     document.querySelectorAll('[data-filter]')
-        .forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.filter) === filter)));
+        .forEach(b => b.setAttribute('aria-pressed', String(b.dataset.filter === String(filter))));
     document.querySelector('#groups').innerHTML = groupList();
     return
   }
@@ -368,6 +384,7 @@ document.addEventListener('click', event => {
     return
   }
   switch (d.action) {
+    case 'add-category':categoryDialog();break;
     case 'archived-exercises':archivedExercises();break;
     case 'cloud':cloudDialog();break;
     case 'cloud-review':
@@ -496,6 +513,7 @@ document.addEventListener('input', e => {
   if (e.target.name === 'result') e.target.setCustomValidity('')
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset?.scanInput) { scanFood(e.target); return; }
   if(e.target.id==='skill-detail'||e.target.id==='exercise-detail'){
     const id=e.target.id;
     if(id==='skill-detail')selectedSkill=e.target.value;else selectedExercise=e.target.value;

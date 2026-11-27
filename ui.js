@@ -127,7 +127,7 @@ function week(gym=false) {
               'aria-label="' + fmt(d, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + n +
               (gym?' reps':' exercises')+'"><span class="stack" aria-hidden="true">' +
               Array
-                  .from({length: 6}, (_, j) => '<b class="' + (j < Math.ceil(6*n/(gym?coreTarget:exercisesAt(d).length)) ? 'on' : '') + '"></b>')
+                  .from({length: 6}, (_, j) => '<b class="' + (j < Math.ceil(6*n/(gym?coreTarget:Math.max(1,exercisesAt(d).length))) ? 'on' : '') + '"></b>')
                   .join('') +
               '</span><span>' + fmt(d, {weekday: 'short'}).slice(0, 2) + '</span></button>'
         }).join('') +
@@ -135,10 +135,12 @@ function week(gym=false) {
 }
 function balance(records, list=exercises) {
   return groups
-      .map((g, i) => {
+      .map(g => {
+        const i=g.ref;
         const pool = records.filter(r => byId[r.id].gi === i), n = new Set(pool.map(r => r.id)).size,
               total = list.filter(e => e.gi === i).length;
-        return '<div class="balance-line"><div class="label-line"><span>' + g.name + '</span><span>' + n +
+        if (!total) return '';
+        return '<div class="balance-line"><div class="label-line"><span>' + esc(g.name) + '</span><span>' + n +
             ' / ' + total + '</span></div><div class="bartrack"><em style="--c:' + g.colour +
             ';width:' + 100 * n / total + '%"></em></div></div>'
       })
@@ -166,23 +168,23 @@ function clearControl(id,label){
   return '<button class="untick" data-untick="'+id+'" aria-label="Untick '+esc(label)+'">Untick</button>';
 }
 function groupList() {
-  return groups
-      .map((g, i) => {
-        if (filter !== -1 && filter !== i) return '';
-        const es = exercisesAt(selected).filter(e => e.gi === i),
-              n = es.filter(e => entries.has(key(selected, e.id))).length;
-        return '<section class="ex-group"><div class="group-label" style="--group-colour:' + g.colour +
-            '"><h3>' + g.name + '</h3><span data-groupcount="' + i + '" class="count">' + n + ' / ' +
-            es.length + '</span></div>' + es.map(row).join('') + '<button class="add-exercise" data-add-exercise="'+i+'" aria-label="Add exercise to '+g.name+'">'+icon('plus')+' Add exercise</button></section>'
-      })
-      .join('')
+  const available=groupsAt(selected);
+  const visible=available.filter(group=>filter===-1 || group.ref===filter);
+  return (visible.length ? visible : available).map(g => {
+    const i=g.ref;
+    const es=exercisesAt(selected).filter(e => e.gi===i);
+    const n=es.filter(e=>entries.has(key(selected,e.id))).length;
+    return '<section class="ex-group"><div class="group-label" style="--group-colour:'+g.colour+
+      '"><h3>'+esc(g.name)+'</h3><span data-groupcount="'+i+'" class="count">'+n+' / '+es.length+'</span>'+
+      '<button class="category-edit" data-edit-category="'+i+'" aria-label="Edit '+esc(g.name)+'">'+icon('edit')+'</button>'+
+      '</div>'+es.map(row).join('')+'<button class="add-exercise" data-add-exercise="'+i+'" aria-label="Add exercise to '+
+      esc(g.name)+'">'+icon('plus')+' Add exercise</button></section>';
+  }).join('')+'<div class="add-category-line"><button class="add-exercise" data-action="add-category">'+icon('plus')+
+    ' Add category</button></div>';
 }
 function filterBtns() {
-  return [-1, ...groups.keys()]
-      .map(
-          i => '<button class="chip" data-filter="' + i + '" aria-pressed="' + (filter === i) + '">' +
-              (i < 0 ? 'All' : groups[i].short) + '</button>')
-      .join('')
+  return [[-1,'All'],...groupsAt(selected).map(g=>[g.ref,g.short])].map(([ref,label])=>
+    '<button class="chip" data-filter="'+ref+'" aria-pressed="'+(filter===ref)+'">'+esc(label)+'</button>').join('');
 }
 function prList(records, limit = Infinity) {
   return records.filter(r => r.level === 3)
@@ -293,9 +295,9 @@ function chartWeek() {
   const rows =
       groups
           .map(
-              (group, gi) => '<tbody><tr class="matrix-group"><th colspan="8">' + group.name +
+              group => '<tbody><tr class="matrix-group"><th colspan="8">' + esc(group.name) +
                   '</th></tr>' +
-                  exercises.filter(e => e.gi === gi)
+                  exercises.filter(e => e.gi === group.ref)
                       .map(
                           e => '<tr><th scope="row">' + esc(e.name) + '</th>' +
                               ds.map(d => {
@@ -305,7 +307,7 @@ function chartWeek() {
                                       levels[l];
                                   return '<td><button class="cell ' + colours[l] + '" data-cell="' +
                                       key(d, e.id) + '" aria-label="' + esc(title) + '" title="' +
-                                      esc(title) + '" ' + (d > today || (chartUntick && !l) || ((e.created && d < e.created || e.archived && d >= e.archived) && !l) ? 'disabled' : '') + '>' +
+                                      esc(title) + '" ' + (d > today || (chartUntick && !l) || (!exerciseOn(e,d) && !l) ? 'disabled' : '') + '>' +
                                       icon(['plus', 'check', 'heavy', 'trophy'][l]) + '</button></td>';
                                 }).join('') +
                               '</tr>')
@@ -372,7 +374,7 @@ function gaps(records) {
     return '<p class="empty-copy">After your first training day, this shows which exercises you left out. Today is still in progress.</p>';
   const days = [...new Set(rs.map(r=>r.day))];
   const rankedList = ranked(rs).map(e => ({...e, eligible:days.filter(d =>
-    (!e.created || d >= e.created) && (!e.archived || d < e.archived)).length}))
+    exerciseOn(e,d)).length}))
     .filter(x => x.n < x.eligible).sort((a,b) => (b.eligible-b.n)-(a.eligible-a.n));
   if (!rankedList.length)
     return '<p class="empty-copy">You covered every exercise in every logged session in this period.</p>';
@@ -428,6 +430,7 @@ function workoutInsights() {
 }
 function render(animate=false) {
   stopCounters();
+  if (filter!==-1 && !groupsAt(selected).some(g=>g.ref===filter)) filter=-1;
   document.querySelectorAll('nav [data-view]').forEach(b => {
     if (b.dataset.view === view)
       b.setAttribute('aria-current', 'page');

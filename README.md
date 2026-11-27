@@ -25,3 +25,11 @@ Bench Dan uses this repository with its own home screen, catalogue, backups and 
 ## Supabase connection
 
 Use a dedicated project. Run `supabase.sql` in its SQL Editor and provision a confirmed email and password for each person through Supabase Auth. In the app, open **Settings and backups** and select **Supabase backup**. Enter the project's HTTPS URL and publishable key to sign in. The app can save and merge private cloud backups on demand. PostgreSQL row-level security limits each account to its own rows. The two apps use separate journal rows, including when an account uses both. Automatic sync is not configured.
+
+### Food photos and receipts
+
+In Bench Dan, open **Calories**, then **Add food**. Take or choose a food photo to get dish suggestions. Scan a receipt or label to read printed item names and explicit calorie values. Confirm the portion in the form before saving. A price is never used as a calorie value. The image is processed in the browser. The first food scan downloads a roughly 60 MB model, and the receipt scanner also needs to load its text recognition files.
+
+### Workout categories
+
+Use **Add category** below the workout list. Open the pencil next to a category to rename or remove it. Swipe left on an exercise on a touchscreen or use **Edit** to rename or remove it. Confirm removal to hide the item from the workout list. Historical marks remain in History, and removed items can be restored from Settings.

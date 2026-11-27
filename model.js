@@ -1,7 +1,7 @@
 'use strict';
 const isDan = document.documentElement?.dataset.journal === 'dan';
 const appName = isDan ? 'Bench Dan' : 'Bench Marx';
-const groups = [
+const baseGroups = [
   {
     name: 'Cable machine',
     short: 'Cable',
@@ -33,10 +33,12 @@ const groups = [
     ]
   }
 ];
-if (isDan) groups.pop();
+if (isDan) baseGroups.pop();
+baseGroups.forEach((g,ref) => g.ref=ref);
+const groups = [...baseGroups];
 const exercises =
     groups.flatMap((group, gi) => group.exercises.map(([id, name, detail]) => ({id, name, detail, gi})));
-const baseExerciseCount = exercises.length;
+const baseExercises = [...exercises];
 const byId = Object.fromEntries(exercises.map(e => [e.id, e]));
 // Keep retired records readable in History and portable in backups.
 byId.pallof = {id:'pallof', name:'Pallof presses', retired:true};
@@ -62,8 +64,17 @@ for (const skill of skills) {
   }
 }
 function isGym(r){ return !!byId[r.id]?.skill }
-function activeWorkout(r){ return !isGym(r) && !byId[r.id].retired && (!byId[r.id].archived || r.day < byId[r.id].archived) }
-function archivedDay(day){ return [...entries.values()].filter(r=>r.day===day && (byId[r.id].retired || (byId[r.id].archived && r.day >= byId[r.id].archived))) }
+function groupRef(value) {
+  return /^[0-2]$/.test(value) ? Number(value) : value;
+}
+function groupOf(ref) { return groups.find(group=>group.ref===ref); }
+function visibleOn(item,day) {
+  return !!item && (!item.created || item.created<=day) && (!item.archived || item.archived>day);
+}
+function groupsAt(day) { return groups.filter(g=>visibleOn(g,day)); }
+function exerciseOn(exercise,day) { return visibleOn(exercise,day) && visibleOn(groupOf(exercise.gi),day); }
+function activeWorkout(r) { return !isGym(r) && exerciseOn(byId[r.id],r.day); }
+function archivedDay(day){ return [...entries.values()].filter(r=>r.day===day && !isGym(r) && !exerciseOn(byId[r.id],day)) }
 const levels = ['Unlogged', 'Done', 'Heavy', 'PR'], colours = ['neutral', 'done', 'heavy', 'pr'];
 const entries = new Map();
 const prefix = isDan ? 'bench-dan.v1.entry.' : 'formlog.v1.entry.';
@@ -112,7 +123,7 @@ function cleanRecord(r, catalogue = byId) {
   return out;
 }
 function exercisesAt(day) {
-  return exercises.filter(e => (!e.created || e.created <= day) && (!e.archived || e.archived > day));
+  return exercises.filter(e => exerciseOn(e,day));
 }
 function dayItems(day) {
   return exercisesAt(day).map(e => entries.get(key(day, e.id))).filter(Boolean)
